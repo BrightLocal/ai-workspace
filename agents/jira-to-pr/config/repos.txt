@@ -1,0 +1,10 @@
+# List of git repositories the agent will work with.
+# One line = one URL.
+# SSH and HTTPS are both supported.
+# Lines starting with # are ignored.
+
+# Tools — main repository (monolith), includes backend and frontend of the product.
+https://github.com/BrightLocal/Tools.git
+
+# ListingSyncer — external integrations (Google Business Profile, Facebook, Bing, Apple Maps, Yelp).
+https://github.com/BrightLocal/ListingSyncer.git

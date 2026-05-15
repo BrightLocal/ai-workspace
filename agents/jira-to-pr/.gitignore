@@ -1,0 +1,14 @@
+# Робоча директорія агента
+workspace/
+
+# Локальні налаштування Claude Code
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp

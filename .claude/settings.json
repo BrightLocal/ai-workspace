@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write(products/**/working/**)",
+      "Write(personal/**)",
+      "Write(agents/jira-to-pr/workspace/**)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Write(shared/**)",
+      "Write(skills/**)",
+      "Write(agents/**)",
+      "Write(products/**/CONTEXT.md)",
+      "Write(products/**/architecture.md)",
+      "Write(products/**/glossary.md)",
+      "Bash(rm -rf*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  },
+  "_comment": "These permissions are conservative — they let agents write only into working directories and personal preferences. To modify shared knowledge (skills, personas, templates), do it manually in your editor. This protects the team-shared parts of the workspace from accidental agent edits."
+}

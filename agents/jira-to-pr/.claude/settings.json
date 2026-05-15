@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write(workspace/**)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(scripts/*)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf *)",
+      "Bash(composer install*)",
+      "Bash(npm install*)",
+      "Bash(npm ci*)",
+      "Bash(yarn install*)",
+      "Bash(pnpm install*)"
+    ]
+  },
+  "_comment": "Permissive settings for the jira-to-pr code-writing agent. Broader than the root PM workspace settings. Run this agent from agents/jira-to-pr/ as CWD."
+}

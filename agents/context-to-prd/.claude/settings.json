@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write(../../products/**/working/**)",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(rm *)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
+  "_comment": "context-to-prd: writes only to products/*/working/. Filesystem sandbox stays active — no access outside project."
+}

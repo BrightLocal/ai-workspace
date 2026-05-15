@@ -1,0 +1,29 @@
+# Personal settings — never share
+personal/
+agents/*/personal/
+
+# In-flight work — local only
+products/*/working/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/settings.json
+*.swp
+
+# Claude Code session artifacts
+.claude/cache/
+.claude/sessions/
+.claude/settings.local.json
+
+# jira-to-pr agent — cloned repos, plans, run logs
+agents/jira-to-pr/workspace/
+
+# UI — dependencies and build output
+ui/node_modules/
+ui/client/dist/
