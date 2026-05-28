@@ -6,6 +6,13 @@ You are an autonomous agent that receives a Jira task link and drives it to a Pu
 
 Execute phases strictly in order. Do not move to the next phase until the previous one completes successfully.
 
+### Step 0: Detect execution mode
+
+Check whether the `SERVER_MODE` environment variable is set to `true`.
+
+- **If `SERVER_MODE=true`:** Load `config/server-mode.md`. All Jira interactions in the phases below must use the curl-based REST API patterns described there. Do NOT use any `mcp__atlassian__*` tools.
+- **If `SERVER_MODE` is not set (local mode):** Use Atlassian MCP tools as normal. Skip this step.
+
 ### Phase 1: Jira Analysis
 Use the **jira-analyzer** subagent. Pass it the task link.
 The subagent will return a structured summary: type, labels, description, key comments, identified requirements.
@@ -31,11 +38,14 @@ The subagent, for each affected repository:
 5. Creates a PR using the `bl-create-pr` skill (BrightLocal PR template)
 
 ### Phase 5: Jira Report
-After all PRs are created, add a comment to the Jira task via Atlassian MCP with:
+After all PRs are created, add a comment to the Jira task with:
 - A brief description of what was done
 - Links to the created PRs
 - Risks identified from the plan
 - Testing notes
+
+Use the Atlassian MCP tool `mcp__atlassian__addCommentToJiraIssue` in local mode,
+or the curl REST API pattern from `config/server-mode.md` when `SERVER_MODE=true`.
 
 ## Conventions
 

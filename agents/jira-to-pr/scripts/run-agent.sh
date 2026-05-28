@@ -33,6 +33,7 @@ mkdir -p "$RUN_DIR"
 
 echo "▶ Starting agent for task $JIRA_KEY"
 echo "  Logs: $RUN_DIR"
+[[ "${SERVER_MODE:-}" == "true" ]] && echo "  Mode: SERVER (Jira REST API)"
 echo
 
 cd "$ROOT_DIR"
@@ -40,7 +41,6 @@ cd "$ROOT_DIR"
 # Run Claude Code in non-interactive (headless) mode.
 # --print outputs the response to stdout and ends the session automatically.
 # --permission-mode acceptEdits allows autonomous file operations.
-# --dangerously-skip-permissions = full autonomy (WARNING: only if you trust the agent and the repo is in an isolated environment)
 claude \
     --print \
     --permission-mode acceptEdits \
@@ -48,5 +48,22 @@ claude \
     "Execute the full workflow for Jira task $JIRA_INPUT. Follow the phase sequence from CLAUDE.md. Save logs for this run to $RUN_DIR." \
     2>&1 | tee "$RUN_DIR/agent.log"
 
+EXIT_CODE=${PIPESTATUS[0]}
+
 echo
-echo "✓ Done. Check $RUN_DIR/agent.log and the results in Jira/GitHub."
+if [[ $EXIT_CODE -eq 0 ]]; then
+    echo "✓ Done. Check $RUN_DIR/agent.log and the results in Jira/GitHub."
+else
+    echo "✗ Agent exited with code $EXIT_CODE. Check $RUN_DIR/agent.log for details."
+    # In server mode, add an ai-error label so n8n and the team can see the failure in Jira
+    if [[ "${SERVER_MODE:-}" == "true" ]] && [[ -n "${JIRA_BOT_EMAIL:-}" ]] && [[ -n "${JIRA_BOT_API_TOKEN:-}" ]]; then
+        curl -s -X PUT \
+            -u "$JIRA_BOT_EMAIL:$JIRA_BOT_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"update": {"labels": [{"add": "ai-error"}, {"remove": "ai-processing"}]}}' \
+            "https://brightlocal.atlassian.net/rest/api/3/issue/$JIRA_KEY" > /dev/null \
+            && echo "  Jira label updated: ai-error"
+    fi
+fi
+
+exit $EXIT_CODE
