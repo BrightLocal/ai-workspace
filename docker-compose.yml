@@ -1,0 +1,14 @@
+services:
+  ai-workspace:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      - SERVER_MODE=true
+    volumes:
+      - workspace-data:/app/agents/jira-to-pr/workspace
+    restart: unless-stopped
+
+volumes:
+  workspace-data:
