@@ -4,6 +4,7 @@ agents/*/personal/
 
 # In-flight work — local only
 products/*/working/
+products/*/codebase/
 
 # Environment files
 .env

@@ -8,7 +8,7 @@
 #   ./scripts/run.sh <feature-slug> <path-to-input-file> --interactive
 #
 # Environment:
-#   ACTIVE_PRODUCT — product slug under products/ (default: BrightLocal)
+#   ACTIVE_PRODUCT — product slug under products/ (default: Tools)
 #
 # This script sets up the working directory and prints the suggested
 # Claude Code invocations. It does NOT directly invoke subagents — Claude Code
