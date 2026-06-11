@@ -312,7 +312,7 @@ Read ${base}/03-prd.md. As a senior architect, assess technical feasibility, ide
 
 function buildSpawnConfig(agentSlug, inputs) {
   const config = getConfig()
-  const activeProduct = config.activeProduct || 'BrightLocal'
+  const activeProduct = config.activeProduct || 'Tools'
   const streamArgs = ['--print', '--verbose', '--output-format', 'stream-json', '--permission-mode', 'bypassPermissions']
 
   if (agentSlug === 'calendar-analyzer') {

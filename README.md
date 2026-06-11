@@ -78,7 +78,7 @@ Each product has its own folder under `products/`. To switch the active product,
 set the environment variable before invoking a pipeline:
 
 ```bash
-export ACTIVE_PRODUCT=BrightLocal
+export ACTIVE_PRODUCT=Tools
 # or
 export ACTIVE_PRODUCT=pet-project
 ```
@@ -88,7 +88,7 @@ Pipelines read `products/$ACTIVE_PRODUCT/CONTEXT.md` automatically.
 ## Adding a new product
 
 1. Create `products/{your-product-slug}/`
-2. Copy `products/BrightLocal/CONTEXT.md` as a starting point
+2. Copy `products/Tools/CONTEXT.md` as a starting point
 3. Fill in the questions in CONTEXT.md
 4. (Optional) add `architecture.md` and `glossary.md` for richer context
 
@@ -110,7 +110,7 @@ That's it. No code changes needed.
 
 If you decide to share with teammates:
 
-1. Make sure `.gitignore` is excluding `personal/`, `products/*/working/`, and
+1. Make sure `.gitignore` is excluding `personal/`, `products/*/working/`, `products/*/codebase/`, and
    any `*.env` or credential files
 2. Push to a private repo
 3. Have teammates clone and run their own `personal/` setup

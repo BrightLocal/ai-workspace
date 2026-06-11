@@ -68,7 +68,7 @@ If the PM doesn't know the current baseline, write: "Increase X (current: TBD)".
 NEVER fabricate baselines.
 
 For INVESTIGATION PRDs, the desired outcome is about LEARNING, not about behavior
-change. Example: "Validate that Data Axle APIs can support BrightLocal use cases
+change. Example: "Validate that Data Axle APIs can support Tools use cases
 for location submission and status tracking."
 -->
 

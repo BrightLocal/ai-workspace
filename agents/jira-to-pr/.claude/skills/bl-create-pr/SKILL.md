@@ -1,6 +1,6 @@
 ---
 name: bl-create-pr
-description: Create a pull request with proper BrightLocal template, analyzing all branch changes to auto-fill the PR body. Use when the user wants to create or open a PR.
+description: Create a pull request with proper Tools template, analyzing all branch changes to auto-fill the PR body. Use when the user wants to create or open a PR.
 disable-model-invocation: true
 argument-hint: [base-branch (default: master)]
 allowed-tools: Bash(git *), Bash(gh *), Grep, Glob, Read

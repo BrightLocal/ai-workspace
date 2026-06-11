@@ -102,6 +102,27 @@ Triggers on any of:
 On match: read `agents/jira-to-pr/CLAUDE.md` and execute the full pipeline from Jira analysis
 through to PR creation.
 
+## Working with product codebases
+
+Each product in `products/` has a `codebase/` directory containing a symlink (or clone)
+of the actual repository. Always use these paths — never hardcode absolute paths outside
+the workspace and never use `cd` to change into a product directory.
+
+**Conventions:**
+- Read files via `products/{name}/codebase/{repo}/path/to/file`
+- Run git commands via `git -C products/{name}/codebase/{repo} <command>`
+- Before any investigation, read `products/{name}/CONTEXT.md` to get the repo name
+
+Example — reading a file in Tools:
+```
+products/Tools/codebase/Tools/src/Modules/LocationManager/...
+```
+
+Example — git log in ListingSyncer:
+```
+git -C products/ListingSyncer/codebase/ListingSyncer log --oneline -10
+```
+
 ## Sharing notes
 
 This workspace is built shareable-by-design. Three rules to keep it that way:

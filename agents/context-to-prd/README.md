@@ -54,7 +54,7 @@ Save it somewhere, e.g., `~/scratch/aggregators-renewal-input.md`.
 ### 2. Pick the active product
 
 ```bash
-export ACTIVE_PRODUCT=BrightLocal   # or pet-project
+export ACTIVE_PRODUCT=Tools   # or pet-project
 ```
 
 ### 3. Run the pipeline

@@ -5,6 +5,7 @@
       "Glob",
       "Grep",
       "Write(products/**/working/**)",
+      "Write(products/**/codebase/**)",
       "Write(personal/**)",
       "Write(agents/jira-to-pr/workspace/**)",
       "mcp__*"
