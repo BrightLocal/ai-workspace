@@ -8,7 +8,16 @@
       "Write(products/**/codebase/**)",
       "Write(personal/**)",
       "Write(agents/jira-to-pr/workspace/**)",
-      "mcp__*"
+      "mcp__atlassian",
+      "mcp__claude_ai_Atlassian_Rovo",
+      "mcp__claude_ai_Google_Calendar",
+      "mcp__claude_ai_Gmail",
+      "mcp__claude_ai_Google_Drive",
+      "mcp__claude_ai_BrightLocal_MCP",
+      "mcp__claude_ai_BrightLocal_Design_System",
+      "mcp__claude_ai_Firecrawl",
+      "mcp__claude_ai_Metabase",
+      "mcp__metabase"
     ],
     "deny": [
       "Write(shared/**)",
