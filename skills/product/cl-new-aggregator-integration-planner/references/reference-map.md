@@ -35,6 +35,14 @@ Replace `Neustar`/`neustar` with `<X>`/`<x>` throughout. Confirm each path still
 - Integration id: `src/Includes/Constant/Integration.php` (`NEUSTAR` + `NAME_MAP`)
 - Surface: `src/Modules/LocationConnections/Application/Query/GetSupportedIntegrationsQueryHandler.php`
 - Handlers auto-register via `src/HaploFramework/ServicesLoader.php` (no manual DI for query handlers)
+- **Frontend (Aggregators section on the LM edit page)** — the aggregator renders here, the same place
+  DataAxle and Neustar show (NOT the `connect_integration` Connections/social tiles). Reference (on
+  `epic/neustar`): `src/App/LocationDashboard/Resources/assets-v2/location_manager/components/ConnectAndSync/AggregatorsSection.tsx`
+  — the `AGGREGATORS` list + per-aggregator `is<X>Enabled` prop (driven by the backend availability/FF) +
+  the `<h3>Aggregators</h3>` section. Add the new integration there (availability in Phase 3, connected
+  state in Phase 4). Aggregator logos live under `frontend/shared/connections_integrations/assets/logos/`
+  and `public/images/v2/aggregators/`. FE checks: `make eslint`, `make tsc`, `make jest`
+  (Yarn build via `make frontend_builder`).
 
 ## Phase 4 — connection trigger + AS enable (Tools + LS)
 - Trigger (Tools): `src/Modules/Cb/Application/Listeners/NeustarConnectionRequestListener.php` (on `CampaignStatusUpdated`→`onCampaignInProgress`); DataAxle's uses `CampaignPurchasedEvent` — pick per the "in progress" requirement. Register in `src/Modules/Cb/Resources/config/services-symfony-loader.php`.
@@ -55,3 +63,8 @@ Replace `Neustar`/`neustar` with `<X>`/`<x>` throughout. Confirm each path still
 ## Phase 7 — backlinks after processing
 - Neustar live/backlink flow (LM-4164): the publish path that upgrades `Submitted → Live` with URLs — LS `src/Modules/Neustar/…` publications sync + `NeustarListingPublished` message → Tools `NeustarListingPublishedHandler` / `PublisherSubmissionUpdater`. GPS-style networks that never return a backlink stay `Submitted`.
 - **Sync APIs**: the submit response may already carry directory URLs — update the CB campaign publisher directories directly instead of via the async publish flow.
+
+## Phase 8 — failed-submissions admin dashboard (Tools Sysadmin + LS)
+- Tools Sysadmin (reference): `src/App/Sysadmin/Neustar/ListingsDashboard/Actions/` — `NeustarFailedSubmissions.php` (list), `ResubmitNeustarFailedRequest.php` (resubmit), `NeustarCategories.php`; plus its `Resources/assets*` + template. Drives the list/resubmit via the Tools `Modules/Location/Application/Service/Integration/Neustar/ApiClient` methods (`fetchFailedRequests`, `resubmit`) and Query handlers under `Application/Query/Integration/Neustar/` (`FetchNeustarFailedSubmissionsQuery`, `GetListingStatusQuery`).
+- LS endpoints (reference): `src/Modules/Neustar/Adapter/HTTP/RequestController.php` — `GET /neustar/failed-requests`, `GET /neustar/requests/{requestId}`, `POST /neustar/requests/{requestId}/resubmit`; backed by `Application/Service/FailedRequestsProvider.php` and `RequestResubmitter.php`. Failed state comes from the `Request` entity status/error captured in Phase 1/7.
+- Note: the Neustar admin dashboard lives in the legacy `src/App/Sysadmin/` area (not `src/Modules/`); follow the existing Sysadmin dashboard structure for consistency rather than the Modules hexagonal layout.
