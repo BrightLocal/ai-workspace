@@ -62,8 +62,19 @@ over `Internal Bug` when the diagnosis stopped at "unverified".
 
 ## Priority
 
-Field `priority`, set via `additional_fields`. Scheme is `P1`…: `LM-4317` uses
-**`P2 - Medium`**, a good default.
+Field `priority`, set via `additional_fields`. The scheme is steak-doneness
+themed — **these are the only valid names** (verified live on 2026-08-26 when
+`P1 - High` was rejected as invalid):
+
+| id | name | Treat as |
+|---|---|---|
+| `1` | `P0 - Well done` | Critical |
+| `2` | `P1 - Medium well` | High |
+| `3` | `P2 - Medium` | Medium — **default** |
+| `4` | `P3 - Medium rare` | Low |
+| `10000` | `P4 - Rare` | Lowest |
+
+`LM-4317` uses **`P2 - Medium`**, a good default.
 
 ```json
 {"priority": {"name": "P2 - Medium"}}
@@ -160,15 +171,16 @@ Non-obvious things that make `LM-4317` good, and that you should copy:
 `{code:php}`, `{{monospace}}`, `_italic_`, `[text|url]`), and `LM` is a classic
 project (`style: classic`, `simplified: false`).
 
-Write wiki markup to match. But `createJiraIssue` also accepts
-`contentFormat: "markdown"` or `"adf"`, and which one renders correctly depends
-on the project's renderer — which is **not** something to guess at.
+**Send Markdown with `contentFormat: "markdown"`, not wiki markup.** Verified on
+`LM-4348` (2026-08-26): Markdown was stored as proper ADF — real headings,
+`codeBlock` nodes, bullet/ordered lists, inline `code` marks. Wiki markup
+(`h2.`, `{code}`) is what `LM-4317` happens to contain, but writing it through
+the MCP server leaves the markers as literal text.
 
-**So: after creating, read the issue back with `getJiraIssue` and check the
-description rendered as headings and code blocks.** If literal `h2.` or `{code}`
-markers are showing as text, rewrite the description in Markdown with
-`contentFormat: "markdown"`. Tell the user either way — a mangled ticket is
-worse than no ticket.
+**After creating, read the issue back with
+`getJiraIssue(responseContentFormat: "adf")`** and confirm the description is
+structured ADF nodes. Don't verify via `renderedFields` — it shows the legacy
+render and can look fine while the stored content is wrong.
 
 ## Creating the ticket
 

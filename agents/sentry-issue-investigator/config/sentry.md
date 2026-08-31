@@ -131,6 +131,46 @@ Owning teams seen on Tools issues: `connected-locations-be`,
 `backend-insights-be`, `citations-be`. `assigned:` is a good cross-check that a
 module filter caught the right team's work.
 
+## Triage sweep — the reactive signals
+
+Frequency order alone is a poor triage input. Run these alongside the main list
+and surface any hits **above** the frequency table.
+
+```
+# REGRESSED — a previous fix did not hold. Always check this one.
+is:regressed stack.abs_path:"*/src/Modules/Location/*"
+
+# NEW in the last 24h — pair with sort="new"
+is:unresolved firstSeen:-24h stack.abs_path:"*/src/Modules/Location/*"
+
+# STILL ACTIVE right now — pair with sort="date"
+is:unresolved lastSeen:-2h stack.abs_path:"*/src/Modules/Location/*"
+
+# CUSTOMER-VISIBLE at scale
+is:unresolved userCount:>100 stack.abs_path:"*/src/Modules/Location/*"
+```
+
+**Spike detection** needs a time series, so use `search_events` with a
+`count()` per interval and compare against the preceding window — `search_issues`
+returns a window total, which cannot distinguish "rising fast" from "steady for
+a month at the same number". The two need opposite responses.
+
+**Release clustering.** Group by `release` to spot a cohort of issues sharing one
+build; that points at the deploy rather than at any single issue, and the person
+who shipped it is usually the fastest route to a fix.
+
+```
+search_events(
+  organizationSlug = "brightlocal",
+  projectSlug      = "tools-backend",
+  dataset          = "errors",
+  query            = 'stack.abs_path:"*/src/Modules/Location/*"',
+  fields           = ["release", "count()"],
+  sort             = "-count()",
+  period           = "7d",
+)
+```
+
 ## Fetching one issue
 
 Accept either form from the user and pass it straight through:

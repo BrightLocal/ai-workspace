@@ -9,6 +9,33 @@ From there it can file a Jira ticket, attach a proposed fix plan, and hand off t
 `jira-to-pr` to implement and open a PR — **each step gated on your explicit
 confirmation.** It never writes application code itself.
 
+## The rule that shapes everything else
+
+**It is not allowed to tell you a plausible story.** Every link in a causal chain
+is a claim with a verdict backed by a tool result:
+
+| Verdict | Meaning |
+|---|---|
+| `OBSERVED` | A tool result shows it directly |
+| `CONFIRMED` | It predicted what production would contain, queried, found it |
+| `REFUTED` | It predicted, queried **with passing controls**, prediction failed |
+| `UNTESTABLE` | Nothing in production can decide it today → instrumentation proposal |
+
+`UNTESTED` is not a permitted final state, the Mechanism section may contain only
+`OBSERVED` and `CONFIRMED` links, and the summary may never read more confident
+than the ledger beneath it.
+
+**Negatives need controls.** A zero-hit query proves nothing until the query is
+shown capable of hitting — so before any refutation it checks retention (C1),
+that the log source shipped anything at all for that host and window (C2), and
+that the search pattern matches somewhere (C3). Those three separate *"the
+hypothesis is wrong"* from *"my query was broken"* and *"that log doesn't reach
+Elasticsearch"* — outcomes that look identical in a results pane and mean
+completely different things. C3 exists specifically because a `match_phrase`
+across a PHP namespace backslash returns 0 for data that is definitely there.
+
+**When the logs can't decide, it proposes the logging that would.** See below.
+
 ## What it can do
 
 | Capability | How |
@@ -18,9 +45,41 @@ confirmation.** It never writes application code itself.
 | Scope to Location / API modules | `stack.abs_path:"*/src/Modules/{Location,API}/*"` |
 | Trace production logs | Elasticsearch MCP over `logstash-*` |
 | Inspect production data | `scripts/db-select.py` — SELECT-only, opt-in |
+| Propose instrumentation when evidence is missing | Mode H — gap type, exact log change, and the query it enables |
 | File a Jira ticket | Atlassian MCP → `LM`, type `Internal Bug`, after Gate 1 |
 | Attach a fix plan | Comment on the ticket, after Gate 2 |
 | Implement and open a PR | Hands off to `jira-to-pr`, after Gate 3 |
+
+## When it can't prove the cause
+
+Rather than guessing, it produces an **instrumentation proposal** — and that
+proposal outranks a speculative fix, because a fix shipped against an unconfirmed
+mechanism gives you a closed ticket and a still-broken system.
+
+It classifies *why* the evidence is missing, because the remedy differs:
+
+| Gap | Remedy lives in |
+|---|---|
+| Nothing emitted at the decision point | App code |
+| Exception swallowed (`catch { return null; }`) | App code |
+| Logged below the shipped level | Log config |
+| App logs to disk, filebeat doesn't ship it | **Filebeat config — not a code change** |
+| No key joining the log line to the Sentry event | App code, both sides |
+| Sentry event lacks the entity IDs to query ES/DB | App code (SDK context) |
+| Rolled off the ~31-day retention | Nothing — re-test on recurrence |
+
+Each proposal carries the exact file and line, what to emit at what level, **the
+ES query it would enable written out in advance**, a volume estimate, a PII
+check, and *how long until it answers* — derived from the observed event rate, so
+you can judge whether instrumenting is worth it before agreeing to it.
+
+The instrumentation ticket is always **separate from the fix ticket**: it closes
+when the data arrives, not when the bug does.
+
+The proposal it makes most often is a **two-way correlation key** — Ray ID tagged
+onto the Sentry event, Sentry event ID logged in the app line. That single change
+converts every future ±2-minute *correlation* into an exact *join* and retires
+the biggest standing weakness in the method.
 
 ## The escalation path
 
@@ -38,6 +97,36 @@ shown in full and confirmed first.
 Before creating anything it **searches Jira for an existing ticket** on that
 Sentry ID and stops if one exists, offering to comment instead. That check is
 not theoretical — `LM-4317` already covers `TOOLS-BACKEND-B77`.
+
+If the ticket it finds is **closed**, that's a regression — a previous fix
+didn't hold. It says so prominently, reads what that ticket claimed to fix
+(usually the most valuable input to the new diagnosis), and asks whether to
+reopen or file a linked ticket rather than quietly opening a duplicate.
+
+## How it triages
+
+Frequency order buries the things that matter, so before showing you the list it
+checks five reactive signals and surfaces any hits above the table: **new**
+(`firstSeen:-24h`), **regressed** (`is:regressed` — always checked, and the
+strongest signal available), **spiking** (a time series, since a window total
+can't tell "rising fast" from "steady for a month"), **critical**, and **release
+stability** (a cohort of issues sharing one build points at the deploy, not the
+issue).
+
+Then every listed issue gets one of three dispositions — and none are skipped
+silently, because an untriaged issue and one judged safe look identical in a
+report:
+
+| Disposition | Meaning | Must come with |
+|---|---|---|
+| **ACT NOW** | Fix this sprint or next | Why now — impact, trend, or regression |
+| **SNOOZE** | Real, not yet worth acting on | **A numeric threshold that brings it back** |
+| **IGNORE** | Safe to leave permanently | The reason it's safe |
+
+**Only ACT NOW earns a Jira ticket.** If nobody will pick it up this sprint or
+next, it's a snooze with a threshold — filing tickets nobody works costs the
+board's signal-to-noise and buys nothing. And a snooze without a number is just
+forgetting, so it always names one ("revisit above 500 events/week").
 
 ## Setup
 
@@ -267,3 +356,11 @@ agents/sentry-issue-investigator/
   clean result.
 - Leaves unknowns labelled instead of guessing a root cause — and files an
   `Investigation` rather than asserting a cause it couldn't verify.
+- Won't report a negative result without its C1–C3 controls, won't put an
+  untested claim in the Mechanism, and won't write a summary more confident than
+  its own ledger.
+- Won't propose a fix for an unconfirmed mechanism — it proposes the
+  instrumentation instead. You can overrule that, and the plan then carries a
+  "Speculative — mechanism unconfirmed" label.
+- Won't file a ticket for anything that isn't ACT NOW, or snooze without a
+  numeric threshold.

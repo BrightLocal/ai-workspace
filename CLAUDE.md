@@ -112,6 +112,7 @@ Triggers on any of:
 - "what's breaking in Tools right now?"
 - "find production logs for this error" / "trace this in elasticsearch"
 - "create a Jira ticket for this Sentry issue" / "propose a fix plan for it"
+- "what would we need to log to know?" / "propose logging changes"
 
 On match: read `agents/sentry-issue-investigator/CLAUDE.md`, then its
 `config/sentry.md` and `config/elasticsearch.md` before issuing any query — they
@@ -119,7 +120,11 @@ carry verified filter syntax and documented dead ends. For ticket/plan/implement
 work also read `config/jira.md` and `config/ticket-templates.md`.
 
 Scope is Tools' **Location** and **API** modules. The agent investigates and
-plans; it never writes application code itself. It can escalate through three
+plans; it never writes application code itself. It is **falsification-first**:
+every causal claim carries a verdict (`OBSERVED` / `CONFIRMED` / `REFUTED` /
+`UNTESTABLE`) backed by a query, negatives require passing controls, and when
+the logs cannot decide a claim it proposes the instrumentation that would —
+which takes precedence over a speculative fix. It can escalate through three
 **independently confirmed** gates — create a Jira ticket (`LM`, type
 `Internal Bug`), attach a fix plan as a ticket comment, then hand off to
 `jira-to-pr` for implementation and PR. Never chain those gates on one approval,

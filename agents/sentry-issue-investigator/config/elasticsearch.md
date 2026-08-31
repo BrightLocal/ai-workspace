@@ -103,6 +103,67 @@ upstream `addr|status|seconds`.
 The **Ray ID** is the best correlation key — it is unique per request, so once
 you have it from one line you can pivot across every source that logged it.
 
+## The three controls — run these before any negative verdict
+
+A zero-hit query is only evidence once you have shown the query *could* have
+hit. These are the recipes for the C1–C3 controls required by Mode C.
+
+### C1 — retention
+
+Arithmetic, not a query: is the Sentry event timestamp within ~31 days of today?
+If not, stop — the verdict is `UNTESTABLE (outside retention)`, and no amount of
+querying changes that.
+
+### C2 — source coverage  (does this source have anything at all here?)
+
+Same source, same window, same host — **minus** the discriminating term. If this
+returns 0, the source shipped nothing for that host/window and a negative on the
+real query means nothing.
+
+```json
+{
+  "size": 0,
+  "query": {"bool": {"filter": [
+    {"term": {"log.file.path.keyword": "/usr/share/filebeat/php/workerman.log"}},
+    {"term": {"host.name.keyword": "workerman03"}},
+    {"range": {"@timestamp": {"gte": "2026-08-24T08:58:00Z", "lte": "2026-08-24T09:02:00Z"}}}
+  ]}}
+}
+```
+
+`0` here → `UNTESTABLE (no source coverage)` and a **Mode H gap type 4** (the app
+may well be logging; filebeat isn't shipping it). It is *not* a refutation.
+
+Cheap variant when you don't yet know which host: drop the `host.name` term and
+add a terms agg on `host.name.keyword` to see who reported at all.
+
+### C3 — pattern capability  (can this pattern ever match?)
+
+Run the discriminating pattern **alone**, across a wide window and no source
+filter. If it matches nothing anywhere, your query is broken — not the
+hypothesis.
+
+```json
+{"size": 1, "_source": ["message"],
+ "query": {"query_string": {"query": "AdditionalDataForward", "default_field": "message"}}}
+```
+
+This control exists because of the documented traps below: `match_phrase` across
+a PHP namespace backslash and multi-wildcard patterns both return 0 for
+perfectly present data. **Without C3 those look exactly like a refuted
+hypothesis.** If C3 fails, rewrite the query using `AND`-joined terms and re-run
+before recording anything.
+
+### Verdict table
+
+| C1 | C2 | C3 | Query result | Verdict |
+|---|---|---|---|---|
+| pass | pass | pass | hits | `CONFIRMED` |
+| pass | pass | pass | 0 | `REFUTED` |
+| pass | pass | **fail** | any | Query is broken — fix and re-run, record nothing |
+| pass | **fail** | — | any | `UNTESTABLE (no source coverage)` → Mode H gap 4 |
+| **fail** | — | — | any | `UNTESTABLE (outside retention)` → Mode H gap 7 |
+
 ## Verified query recipes
 
 ### Pick a log source and tail it

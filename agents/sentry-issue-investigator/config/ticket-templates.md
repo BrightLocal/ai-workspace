@@ -5,8 +5,13 @@ Two artifacts, two jobs. The **ticket description** states the problem. The
 plan can be revised without rewriting the problem statement, and the ticket still
 reads correctly if the plan is rejected.
 
-Both are Jira wiki markup, matching `LM-4317`. Verify rendering after posting
-(see `jira.md`).
+> ⚠️ **Format inconsistency — read `jira.md` first.** Templates 1 and 2 below are
+> written in Jira wiki markup (matching `LM-4317`), but `jira.md` now records a
+> verified finding from `LM-4348` (2026-08-26): send **Markdown** with
+> `contentFormat: "markdown"`, because wiki markup written through the MCP
+> server is stored as literal `h2.` / `{code}` text. Template 3 is in Markdown.
+> **Translate templates 1 and 2 to Markdown when using them** — same sections,
+> same rules, Markdown syntax — until they are converted.
 
 ---
 
@@ -33,6 +38,10 @@ h2. Failure chain
 {code}
 
 h2. Root cause
+
+*Confidence:* {CONFIRMED — mechanism verified in production logs | PARTIALLY
+CONFIRMED — {which link is unverified} | UNCONFIRMED — instrumentation required,
+see {KEY}}
 
 {The specific defect.} {file}:{line}:
 
@@ -159,7 +168,77 @@ h4. Not included
 
 ---
 
-## 3. Handoff note to `jira-to-pr`
+## 3. Instrumentation ticket (Mode H)
+
+Filed when the investigation could not confirm the mechanism because production
+doesn't emit the evidence. **Separate ticket from the fix** — it ships on its own
+timeline and closes when the data arrives, not when the bug does.
+
+Type `Investigation`, unless the missing log is itself a defect (a swallowed
+exception, a misleveled error) — then `Internal Bug`. Written in **Markdown**,
+per `jira.md`.
+
+```markdown
+## Why this ticket exists
+
+Investigation of [{SENTRY-ID}]({sentry-url}) could not confirm the mechanism:
+{the one claim that could not be decided}. Production emits nothing that decides
+it. This ticket adds that signal.
+
+Diagnosis so far: {KEY or "see linked investigation"} — confirmed up to
+{the last CONFIRMED link}, then the chain breaks.
+
+## What we cannot currently tell
+
+| Claim | Why undecidable | Gap |
+|---|---|---|
+| {claim} | {e.g. exception swallowed at Foo.php:88} | {gap type 1–7} |
+
+## Proposed instrumentation
+
+**{Repo} — `{file}`:{line}**
+1. {Concrete emission: level, message, fields}
+2. {…}
+
+Volume: ~{N}/day at the observed rate. PII: {IDs only — no names/addresses}.
+Hot path: {yes/no + what bounds the cost}.
+
+## The query this enables
+
+```
+{the exact ES query that will decide the claim once this is deployed}
+```
+
+## Acceptance criteria
+
+* The log line appears in `{source}` for {condition}, visible in Elasticsearch.
+* The line carries {correlation key} so it joins to the Sentry event.
+* Running the query above returns a decisive result within {N} days of deploy.
+
+## Follow-up
+
+Re-run the investigation ~{N} days after deploy ({N} chosen from the observed
+event rate). If confirmed, the fix ticket becomes actionable.
+```
+
+### Rules
+
+- **State the answer time.** Derive it from the Sentry event rate — "at ~12/day,
+  one day is enough" versus "at 27/30d, expect a week". That number decides
+  whether instrumenting is worth doing at all.
+- **Write the decisive query now.** If you can't, the proposal isn't specific
+  enough to implement.
+- **Prefer the correlation key over more logging.** One request/Ray ID linking
+  Sentry to the app log usually beats three new log statements, and it pays off
+  on every future investigation rather than just this one.
+- **Never log PII.** Entity IDs only.
+- **Gap type 4 is not a code change.** If the app already logs it and filebeat
+  isn't shipping it, the ticket is a config change — say so, and don't send
+  `jira-to-pr` to edit application code.
+
+---
+
+## 4. Handoff note to `jira-to-pr`
 
 Once the user confirms implementation, `jira-to-pr` takes the ticket key. Tell
 it nothing that isn't in the ticket — the ticket and its plan comment must be
