@@ -102,6 +102,37 @@ Triggers on any of:
 On match: read `agents/jira-to-pr/CLAUDE.md` and execute the full pipeline from Jira analysis
 through to PR creation.
 
+### sentry-issue-investigator (`agents/sentry-issue-investigator/`)
+
+Triggers on any of:
+- A Sentry issue short ID (e.g. `TOOLS-BACKEND-B77`) or a `sentry.bll-i.co.uk` URL
+- "investigate [Sentry ID]" / "why is [error] happening?"
+- "list sentry issues for the location module" / "for the API module"
+- "top / most frequent Sentry issues in Tools" / "ordered by occurrences"
+- "what's breaking in Tools right now?"
+- "find production logs for this error" / "trace this in elasticsearch"
+- "create a Jira ticket for this Sentry issue" / "propose a fix plan for it"
+- "what would we need to log to know?" / "propose logging changes"
+
+On match: read `agents/sentry-issue-investigator/CLAUDE.md`, then its
+`config/sentry.md` and `config/elasticsearch.md` before issuing any query — they
+carry verified filter syntax and documented dead ends. For ticket/plan/implement
+work also read `config/jira.md` and `config/ticket-templates.md`.
+
+Scope is Tools' **Location** and **API** modules. The agent investigates and
+plans; it never writes application code itself. It is **falsification-first**:
+every causal claim carries a verdict (`OBSERVED` / `CONFIRMED` / `REFUTED` /
+`UNTESTABLE`) backed by a query, negatives require passing controls, and when
+the logs cannot decide a claim it proposes the instrumentation that would —
+which takes precedence over a speculative fix. It can escalate through three
+**independently confirmed** gates — create a Jira ticket (`LM`, type
+`Internal Bug`), attach a fix plan as a ticket comment, then hand off to
+`jira-to-pr` for implementation and PR. Never chain those gates on one approval,
+and always dedupe against existing Jira tickets before creating one.
+
+Production DB inspection is opt-in (user exports `TOOLS_PROD_DB_DSN`) and goes
+exclusively through `scripts/db-select.py`, which is SELECT-only.
+
 ## Working with product codebases
 
 Each product in `products/` has a `codebase/` directory containing a symlink (or clone)
