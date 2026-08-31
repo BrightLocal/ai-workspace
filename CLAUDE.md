@@ -3,6 +3,11 @@
 This is a personal AI workspace for product work in the Local SEO niche.
 It is designed to be shareable with teammates, but currently used by a single user.
 
+The user is a PM on the **Backend Services** team (formerly Connected Locations,
+merged with part of the Listings team in Aug 2026). Team composition and areas
+of responsibility live in `shared/team.md` — read it whenever ownership or
+"is this our team's scope?" matters.
+
 ## Architecture (read this first)
 
 This workspace separates four distinct concepts. Do not mix them up:
@@ -117,6 +122,25 @@ ask for the input folder if not given, run scripts/run.sh setup, then execute ph
 sequence. Working artifacts are written in English regardless of input language; verbatim
 quotes keep their original language. Confluence publication requires an explicit user
 go-ahead — never chain the report writer into the publisher.
+
+### codebase-to-domain-doc (`agents/codebase-to-domain-doc/`)
+
+Triggers on any of:
+- "generate domain documentation" / "document the domain" / "domain definitions"
+- "build domain definitions from the codebase" / "create a domain glossary"
+- "fill knowledge gaps in the domain docs" / "verify our domain definitions against the code"
+- Ukrainian variants: "згенеруй доменну документацію" / "задокументуй домен" /
+  "доменні визначення" / "словник домену" (accept transliterations and misspellings
+  like "доменна документація", "задокументуй домейн")
+- A definitions-tree file or pasted tree, plus a request to explain/verify/document it
+- A list of module or entity names plus a request to document their domain
+
+On match: read `agents/codebase-to-domain-doc/CLAUDE.md`, detect mode (definitions
+tree vs module-name seed), set ACTIVE_PRODUCT (the output home only — the repos
+scanned default to Tools,ListingSyncer) from context or ask, run scripts/run.sh
+setup, then execute phases in sequence. The main document stays business-language
+only — technical evidence lives in the separate evidence map. Confluence publication
+requires an explicit user go-ahead — never chain the doc writer into the publisher.
 
 ## Working with product codebases
 
