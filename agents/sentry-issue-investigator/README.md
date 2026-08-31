@@ -130,23 +130,64 @@ forgetting, so it always names one ("revisit above 500 events/week").
 
 ## Setup
 
-### 1. MCP servers
+### 1. MCP servers — do this first
 
-All three are already connected in this workspace:
+**Full instructions: [`config/mcp-setup.md`](config/mcp-setup.md).** Sourced from
+the two Confluence pages that own these integrations —
+[\[MCP\] Sentry integration](https://brightlocal.atlassian.net/wiki/spaces/PG/pages/4739235841/MCP+Sentry+integration)
+and
+[\[MCP\] ElasticSearch integration](https://brightlocal.atlassian.net/wiki/spaces/PG/pages/4747657230/MCP+ElasticSearch+integration).
+If they disagree with the local file, Confluence wins.
 
-- `sentry-selfhosted` → `https://sentry.bll-i.co.uk`, org `brightlocal`
-- `elasticsearch` → production log cluster
-- `atlassian` → `brightlocal.atlassian.net` (needed only for Modes E–G)
+| Server | Needed for | Without it |
+|---|---|---|
+| `sentry-selfhosted` | Everything | The agent can't start |
+| `elasticsearch` | Testing claims | **No claim can be confirmed or refuted** |
+| `atlassian` | Tickets, dedup | No Modes E–H |
 
-Check with `/mcp`. Nothing else to configure.
+**Prerequisites for both:** BrightLocal VPN with **Engineer-scoped**
+permissions, Node.js >= 20, npm.
 
-> The Atlassian MCP warns that its HTTP+SSE endpoint is unsupported after
-> 30 June 2026. `.mcp.json` points at `/v1/sse`; the replacement is `/v1/mcp`.
-> Worth updating at some point — unrelated to this agent.
+**Sentry** — take _Sentry Claude MCP Token_ from the Engineering 1Password vault,
+export it as `SENTRY_ACCESS_TOKEN` in your shell profile (it's read from the
+ambient environment, deliberately not stored in the MCP config), then:
+
+```bash
+claude mcp add-json sentry-selfhosted '{
+    "type":"stdio", "command":"npx", "args":["-y","@sentry/mcp-server"],
+    "env":{"SENTRY_HOST":"sentry.bll-i.co.uk","MCP_DISABLE_SKILLS":"seer"}
+}' --scope user
+```
+
+**Elasticsearch** — connect to the VPN first, then:
+
+```bash
+claude mcp add-json elasticsearch '{
+    "type":"stdio", "command":"npx", "args":["-y","@octodet/elasticsearch-mcp"],
+    "env":{"ES_URL":"http://10.79.115.30:9200","ES_VERSION":"8","OTEL_LOG_LEVEL":"none"}
+}' --scope user
+```
+
+On **Claude Desktop** both are one-click instead: connectors →
+**Sentry (internal)**, and Settings → Extensions → **BL ElasticSearch**.
+
+Verify with `claude mcp list` — all three **Connected** — then start a new
+session so the tools load.
+
+> **The VPN is required at runtime, not just at install.** It is by far the most
+> common failure: servers stay "Connected" while every query returns nothing,
+> which looks exactly like a clean result. Check it first whenever Sentry or
+> Elasticsearch goes quiet. The agent is instructed to say so rather than
+> quietly producing a thinner answer.
 
 > **Known quirk:** `find_organizations()` reports *"You don't appear to be a
 > member of any organizations"*, but the org slug `brightlocal` works fine. This
 > is not an outage — pass the slug directly.
+
+> ⚠️ **Atlassian transport is overdue for migration.** `.mcp.json` points at
+> `https://mcp.atlassian.com/v1/sse`; HTTP+SSE support ended **30 June 2026**,
+> which has now passed. Calls still work and carry a deprecation notice on every
+> response. Replacement: `/v1/mcp`. Unrelated to this agent, but worth doing.
 
 ### 2. Tools codebase
 
@@ -323,6 +364,18 @@ sources: `tools-ssl-access.log` (1.87M lines/day), `php-errors.log` (892k),
 window. `php-errors.log` is **not** a mirror of Sentry exceptions — absence
 there proves nothing.
 
+**Structured logs (added 2026-08-31).** `/var/log/listing_syncer/prod.log` — and
+*only* that source, verified by aggregation — ships Monolog JSON parsed into
+`bl_msg.*`: `bl_msg.datetime` (the **true event time**, so no ship-time skew),
+`bl_msg.extra.class`/`.file`/`.line` (the emitting code location, on 100% of
+docs), `bl_msg.extra.request_id` (a real join key, ~13% of docs), and
+`bl_msg.context.*` (`locationUUID`, aggregator state). For ActiveSync and
+aggregator investigations that replaces text-grepping with exact field queries
+and turns correlation into a genuine join. Tools' own logs remain raw text.
+Caveat: `level_name` looks unreliable there — 256k `ERROR` and 165k `CRITICAL`
+per day, and a sampled "…succeeded" line was logged at `ERROR`. Filter on
+message and class, not level.
+
 Full detail, including the query forms that *don't* work, is in
 `config/sentry.md` and `config/elasticsearch.md`.
 
@@ -333,8 +386,9 @@ agents/sentry-issue-investigator/
 ├── CLAUDE.md                 # orchestrator — modes A–G, gates, evidence rules
 ├── README.md                 # this file
 ├── config/
+│   ├── mcp-setup.md          # install + verify the MCP servers — read first
 │   ├── sentry.md             # org, projects, module filters, query cookbook
-│   ├── elasticsearch.md      # indices, field map, log sources, recipes
+│   ├── elasticsearch.md      # indices, field map, bl_msg.*, log sources, recipes
 │   ├── jira.md               # cloudId, project, issue types, dedup query
 │   ├── ticket-templates.md   # ticket description + fix-plan shapes
 │   └── db.env.example        # DSN template + read-only grant rationale

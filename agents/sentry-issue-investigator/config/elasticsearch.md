@@ -40,6 +40,69 @@ subfield.
 fielddata disabled and will error with
 `Fielddata is disabled on [container_name]…`.
 
+## `bl_msg.*` — structured logs, ListingSyncer only
+
+Verified live 2026-08-31 on `logstash-2026.08.30`: **2,785,242 docs** carry a
+structured `bl_msg` object, and an aggregation on `log.file.path.keyword` returns
+**exactly one bucket** — `/var/log/listing_syncer/prod.log`. Monolog JSON,
+parsed by logstash into real fields.
+
+**Everything else — the Tools sources — is raw text**, exactly as the table
+above describes. So: `bl_msg` for ListingSyncer/ActiveSync, `message` grepping
+for Tools.
+
+| Field | Notes |
+|---|---|
+| `bl_msg.datetime` | **The true event time.** Not filebeat ship time — see below |
+| `bl_msg.level_name` / `.level` | `INFO` `DEBUG` `ERROR` `CRITICAL` `WARNING` `NOTICE` / Monolog ints |
+| `bl_msg.message` | The message alone, without the surrounding JSON |
+| `bl_msg.channel` | e.g. `app` |
+| `bl_msg.extra.class` / `.function` / `.file` / `.line` | **Emitting code location — present on 100% of docs** |
+| `bl_msg.extra.request_id` | UUID, ~12.7% of docs (HTTP entry points, not workers) |
+| `bl_msg.context.*` | Domain payload — `locationUUID`, request bodies, aggregator state |
+
+### Why this matters for claim testing
+
+Three of the method's standing weaknesses disappear on this source:
+
+1. **`bl_msg.datetime` removes the skew problem.** The ±2-minute window exists
+   because `@timestamp` is ship time. Here the true event time is a field — so
+   range-filter on `bl_msg.datetime` and correlate precisely. Keep the wide
+   `@timestamp` window as a cheap index prefilter if you like, but decide on
+   `bl_msg.datetime`.
+2. **`bl_msg.extra.class` is a culprit filter.** You can select logs by emitting
+   class the same way Sentry selects by stack frame — no `message` grepping, no
+   backslash-phrase trap. **This is the C3-proof way to query this source.**
+3. **`bl_msg.extra.request_id` is a real join key**, and
+   `bl_msg.context.locationUUID` joins to the entity. Where these exist, a
+   verdict can be `CONFIRMED` outright rather than `CONFIRMED (correlated, not
+   joined)`. Check for them before proposing a Mode H correlation key — on this
+   source it already exists.
+
+```json
+{
+  "size": 20,
+  "_source": ["bl_msg.datetime", "bl_msg.level_name", "bl_msg.message",
+              "bl_msg.extra.class", "bl_msg.extra.line", "bl_msg.context"],
+  "query": {"bool": {"filter": [
+    {"term": {"bl_msg.extra.class.keyword": "App\\Controller\\Location\\SettingsController"}},
+    {"range": {"bl_msg.datetime": {"gte": "2026-08-30T23:00:00Z", "lte": "2026-08-31T00:00:00Z"}}}
+  ]}},
+  "sort": [{"@timestamp": "desc"}]
+}
+```
+
+Pivot on a request: `{"term": {"bl_msg.extra.request_id.keyword": "01a0551d-…"}}`.
+
+> **`level_name` is not trustworthy on this source.** In a 2-doc sample, a line
+> reading *"Active-sync settings update succeeded"* was logged at `ERROR`. Daily
+> volumes support the suspicion — 255,894 `ERROR` and 164,975 `CRITICAL` per day
+> is far too much to be real failure. **Filter on `bl_msg.message` and
+> `extra.class`, not on level**, and never infer "this failed" from
+> `level_name: ERROR` alone. This is itself a Mode H observability defect worth
+> raising — but confirm the pattern on a real sample before filing it; two
+> documents is not evidence of a systemic problem.
+
 ### Timestamp skew — read this before correlating
 
 `@timestamp` is when filebeat **shipped** the line, while the line's own embedded

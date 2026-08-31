@@ -119,6 +119,11 @@ On match: read `agents/sentry-issue-investigator/CLAUDE.md`, then its
 carry verified filter syntax and documented dead ends. For ticket/plan/implement
 work also read `config/jira.md` and `config/ticket-templates.md`.
 
+Requires the `sentry-selfhosted`, `elasticsearch` and `atlassian` MCP servers,
+plus the BrightLocal VPN with Engineer permissions **at runtime** — without the
+VPN, queries return empty rather than erroring. Setup and troubleshooting:
+`agents/sentry-issue-investigator/config/mcp-setup.md`.
+
 Scope is Tools' **Location** and **API** modules. The agent investigates and
 plans; it never writes application code itself. It is **falsification-first**:
 every causal claim carries a verdict (`OBSERVED` / `CONFIRMED` / `REFUTED` /
