@@ -9,17 +9,24 @@ Branch names MUST follow this table:
 | Prefix | Format | Example |
 |---|---|---|
 | `hotfix/` | `hotfix/<lowercase-kebab-description>` | `hotfix/check-empty-user-name` |
-| `fix/` | `fix/<TICKET-ID>[-<short-desc>]` | `fix/BUG-909`, `fix/lm-4033-email-alerts` |
-| `task/` | `task/<TICKET-ID>[-<short-desc>]` | `task/TEC-127`, `task/ce-3605-migrate-endpoints` |
+| `fix/` | `fix/<TICKET-ID>[-<short-desc>]` | `fix/BUG-909`, `fix/LM-4033-email-alerts` |
+| `task/` | `task/<TICKET-ID>[-<short-desc>]` | `task/TEC-127`, `task/CE-3605-migrate-endpoints` |
 | `feature/` | `feature/<TICKET-ID>[-<short-desc>]` | `feature/ADMIN-1291` |
 | `epic/` | `epic/<lowercase-kebab-description>` | `epic/rm-refactoring` |
 
 **Rules:**
 - MUST start with one of: `hotfix/`, `fix/`, `task/`, `feature/`, `epic/`
 - After the prefix: a real ticket ID (e.g. `CE-3605`) optionally followed by `-<lowercase-kebab-desc>`, OR a lowercase-kebab-description (no ticket)
+- **The ticket ID MUST be UPPERCASE** (`[A-Z]+-\d+`, e.g. `LM-4103`). A lowercase ticket like `task/lm-4103-...` FAILS the CI branch-name check. Only the optional `-<short-desc>` part after the ticket is lowercase-kebab.
 - FORBIDDEN: pseudo-IDs like `TASK-0000`, `XXX-0000`, `TICKET-1`, or using the prefix word itself as the ticket key
 - No additional `/` after the prefix
-- All description parts: lowercase, `-` separators, no spaces
+- Description parts (after the ticket, or the whole name for `hotfix/`/`epic/`): lowercase, `-` separators, no spaces
+
+**CI enforcement regex** (Tools repo — branch name must match):
+```
+^(revert-\d+-)*(feature|task|fix|hotfix|epic)\/[A-Z]+-\d+(?:[a-zA-Z0-9\-_]+)*$|^(revert-\d+-)*(fix|hotfix|epic)\/([a-zA-Z0-9\-_]+)$|^main$|^master$|^develop$
+```
+Note: `task/` and `feature/` branches MUST carry an uppercase ticket ID; only `fix/`, `hotfix/`, `epic/` may use a bare lowercase-kebab description with no ticket.
 
 ### Jira issue type → branch prefix
 
