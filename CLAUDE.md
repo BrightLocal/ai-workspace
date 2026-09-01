@@ -102,6 +102,22 @@ Triggers on any of:
 On match: read `agents/jira-to-pr/CLAUDE.md` and execute the full pipeline from Jira analysis
 through to PR creation.
 
+### interviews-to-vpdc (`agents/interviews-to-vpdc/`)
+
+Triggers on any of:
+- "analyze my interviews" / "analyse interview transcripts" (and spelling variants)
+- "run VPDC analysis on [folder]" / "build a value proposition canvas from interviews"
+- "synthesize user interviews" / "what did the interviews tell us"
+- Ukrainian variants: "проаналізуй інтерв'ю" / "аналіз інтерв'ю" / "зроби синтез інтерв'ю"
+  (accept transliterations and misspellings like "інтервью")
+- A folder path containing a research brief + transcripts, plus an analysis request
+
+On match: read `agents/interviews-to-vpdc/CLAUDE.md`, set ACTIVE_PRODUCT from context or ask,
+ask for the input folder if not given, run scripts/run.sh setup, then execute phases in
+sequence. Working artifacts are written in English regardless of input language; verbatim
+quotes keep their original language. Confluence publication requires an explicit user
+go-ahead — never chain the report writer into the publisher.
+
 ## Working with product codebases
 
 Each product in `products/` has a `codebase/` directory containing a symlink (or clone)

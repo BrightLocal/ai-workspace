@@ -5,9 +5,9 @@ in the Local SEO niche. Built on Claude Code.
 
 ## What this is
 
-A coordinated set of AI roles (PM, Architect, Analyst, PMM) and automation pipelines
-(`jira-to-pr`, `context-to-prd`, etc.) that share common knowledge about your products
-and your industry.
+A coordinated set of AI roles (PM, Architect, Analyst, PMM, User Researcher) and
+automation pipelines (`jira-to-pr`, `context-to-prd`, `interviews-to-vpdc`, etc.)
+that share common knowledge about your products and your industry.
 
 The goal is to cover expertise gaps and to compress repetitive product work.
 
@@ -65,7 +65,8 @@ ai-workspace/
 │   └── marketing/
 │
 ├── agents/                   # Autonomous pipelines
-│   └── context-to-prd/       # Free context → PRD draft
+│   ├── context-to-prd/       # Free context → PRD draft
+│   └── interviews-to-vpdc/   # Interview transcripts → VPDC canvas + research report
 │
 └── products/                 # Product-specific context
     ├── BrightLocal/

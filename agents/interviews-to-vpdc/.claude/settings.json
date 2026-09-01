@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write(../../products/**/working/**)",
+      "mcp__atlassian"
+    ],
+    "deny": [
+      "Bash(rm *)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "mcp__atlassian__createJiraIssue",
+      "mcp__atlassian__editJiraIssue",
+      "mcp__atlassian__transitionJiraIssue",
+      "mcp__atlassian__createIssueLink"
+    ]
+  },
+  "enabledMcpjsonServers": ["atlassian"],
+  "_comment": "interviews-to-vpdc: writes only to products/*/working/. MCP permission rules do not support glob wildcards — 'mcp__*' matches nothing; 'mcp__atlassian' allows the whole server. Jira write tools are explicitly denied because this pipeline never creates Jira artifacts — backlog drafts stay markdown. Only the confluence-publisher subagent lists MCP tools in its frontmatter."
+}
