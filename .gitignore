@@ -25,6 +25,9 @@ products/*/codebase/
 # jira-to-pr agent — cloned repos, plans, run logs
 agents/jira-to-pr/workspace/
 
+# jira-to-pr runtime materialized at repo root — cloned repos, plans, run logs
+workspace/
+
 # UI — dependencies and build output
 ui/node_modules/
 ui/client/dist/

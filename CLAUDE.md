@@ -142,6 +142,29 @@ setup, then execute phases in sequence. The main document stays business-languag
 only — technical evidence lives in the separate evidence map. Confluence publication
 requires an explicit user go-ahead — never chain the doc writer into the publisher.
 
+### pm-assistant (`agents/pm-assistant/`)
+
+Triggers on any of:
+- "daily check-in" / "morning check-in" / "plan my day" / "start my day"
+- "what's on my plate (today)?" / "what should I do today?"
+- "end-of-day review" / "wrap up my day" / "close out my day" / "daily review"
+- "add a task: …" / "add to my backlog" / "note a follow-up"
+- "show my backlog" / "my tasks" / "what am I waiting on?"
+- "groom my backlog" / "clean up my backlog"
+- "mark T-NNN done" / "complete T-NNN" / "drop T-NNN" / "delegate T-NNN to …"
+- Ukrainian variants: "мій беклог" / "покажи беклог" / "план на сьогодні" /
+  "що в мене на сьогодні" / "додай задачу" / "додай таску" / "додай в беклог" /
+  "підсумуй день" / "підбий підсумки дня" / "закрий день" / "ранковий чекін" /
+  "розгреби беклог" / "почисти беклог" / "закрий T-NNN" / "делегуй T-NNN на …"
+  (accept transliterations and misspellings like "бэклог", "чек ін", "чекін")
+
+On match: read `agents/pm-assistant/CLAUDE.md`. Quick ops (add/complete/move/
+status/delegate) are handled inline by the orchestrator; routines (check-in,
+end-of-day, grooming) run as subagents. If `personal/pm-assistant/backlog.md`
+does not exist, run `agents/pm-assistant/scripts/run.sh` first. Disambiguation:
+"recap my day" / meeting summaries stay with calendar-analyzer — pm-assistant's
+end-of-day review is about TASKS and may itself delegate to calendar-analyzer.
+
 ## Working with product codebases
 
 Each product in `products/` has a `codebase/` directory containing a symlink (or clone)

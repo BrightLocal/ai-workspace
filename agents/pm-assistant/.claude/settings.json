@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Write(../../personal/pm-assistant/**)",
+      "mcp__claude_ai_Google_Calendar"
+    ],
+    "deny": [
+      "Write(../../products/**)",
+      "Write(../../shared/**)",
+      "Write(../../skills/**)",
+      "Bash(rm *)",
+      "Bash(mv *)",
+      "Bash(git push*)",
+      "mcp__claude_ai_Google_Calendar__create_event",
+      "mcp__claude_ai_Google_Calendar__update_event",
+      "mcp__claude_ai_Google_Calendar__delete_event",
+      "mcp__claude_ai_Google_Calendar__respond_to_event"
+    ]
+  },
+  "_comment": "pm-assistant: writes ONLY to personal/pm-assistant/ (private, gitignored). Calendar is read-only enrichment — the whole server is allowed because MCP permission rules do not support glob wildcards, so the write tools are denied individually. products/** writes are denied here (root allows working/ writes for the pipelines) because this agent's own subagents must never touch product artifacts — delegated pipelines run in the ROOT session under root settings, so delegation is unaffected."
+}
