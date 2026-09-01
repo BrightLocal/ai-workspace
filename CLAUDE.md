@@ -124,6 +124,11 @@ plus the BrightLocal VPN with Engineer permissions **at runtime** — without th
 VPN, queries return empty rather than erroring. Setup and troubleshooting:
 `agents/sentry-issue-investigator/config/mcp-setup.md`.
 
+A weekday-morning Mode A triage digest can run unattended via a systemd user
+timer (`config/scheduling.md`). It is **read-only by construction** — the
+scheduled run never files, resolves or snoozes anything, because the three
+confirmation gates need a human.
+
 Scope is Tools' **Location** and **API** modules. The agent investigates and
 plans; it never writes application code itself. It is **falsification-first**:
 every causal claim carries a verdict (`OBSERVED` / `CONFIRMED` / `REFUTED` /

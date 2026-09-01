@@ -387,14 +387,45 @@ agents/sentry-issue-investigator/
 ├── README.md                 # this file
 ├── config/
 │   ├── mcp-setup.md          # install + verify the MCP servers — read first
+│   ├── scheduling.md         # daily automated triage digest (systemd timer)
+│   ├── daily-triage.prompt.md# the unattended Mode A prompt
 │   ├── sentry.md             # org, projects, module filters, query cookbook
 │   ├── elasticsearch.md      # indices, field map, bl_msg.*, log sources, recipes
 │   ├── jira.md               # cloudId, project, issue types, dedup query
 │   ├── ticket-templates.md   # ticket description + fix-plan shapes
 │   └── db.env.example        # DSN template + read-only grant rationale
 └── scripts/
-    └── db-select.py          # SELECT-only query runner
+    ├── db-select.py          # SELECT-only query runner
+    ├── daily-triage.sh       # unattended morning digest runner
+    └── systemd/              # user timer + service units
 ```
+
+## Running it daily
+
+A weekday-morning triage digest, via a systemd **user** timer calling
+`claude -p` headless. Setup: [`config/scheduling.md`](config/scheduling.md).
+
+```bash
+systemctl --user enable --now sentry-daily-triage.timer   # Mon–Fri 08:12
+```
+
+**Triage only — the timer never files, resolves or snoozes anything.** The
+agent's three confirmation gates need a human, so the scheduled run is
+restricted to the read-only half: it looks, ranks, and reports. You escalate in
+a normal session. Safety comes from the tool allowlist in `daily-triage.sh`, not
+from the permission mode — every Sentry, Elasticsearch and Jira write tool is
+denied explicitly.
+
+Output lands in `products/Tools/working/sentry/daily/YYYY-MM-DD.md` (gitignored),
+with the TL;DR posted to Slack if a webhook is configured.
+
+**When the environment is unhealthy it produces no digest at all.** A
+disconnected VPN and a genuinely quiet night look identical in Sentry — both
+empty — so the runner checks the token, the VPN unit, the tun interface and TCP
+reachability to the ES cluster before invoking anything. On any failure it writes
+`YYYY-MM-DD.SKIPPED.md` and says so in Slack, explicitly labelled *not an
+all-clear*. A false quiet morning is worse than a missing one, because you act
+on it.
 
 ## Limits
 
