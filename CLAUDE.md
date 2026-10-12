@@ -165,6 +165,35 @@ does not exist, run `agents/pm-assistant/scripts/run.sh` first. Disambiguation:
 "recap my day" / meeting summaries stay with calendar-analyzer — pm-assistant's
 end-of-day review is about TASKS and may itself delegate to calendar-analyzer.
 
+## Skill routing
+
+Skills in `skills/` are normally loaded by pipeline subagents, not routed directly.
+The exception is the standalone skill below, also registered in `.claude/skills/`
+(symlink) so Claude Code can invoke it directly.
+
+### product-domain-documentation (`skills/product/product-domain-documentation/`)
+
+Triggers on any of:
+- "document [domain/capability name]" (e.g. "document Active Sync", "document the Add Location Wizard")
+- "build product domain documentation for [X]" / "create AI-ready docs for [X]"
+- "audit/update the domain docs for [X]" / "update the product knowledge base for [X]"
+- Ukrainian variants: "задокументуй [назва домену/фічі]" / "збери документацію по [X]" /
+  "підготуй доменну документацію для [X]" / "онови базу знань по [X]"
+  (accept transliterations and misspellings)
+
+On match: read `skills/product/product-domain-documentation/SKILL.md` and follow its
+workflow. The user's short input is a research seed — investigate available evidence
+(product codebases via `products/{name}/codebase/`, Jira, Confluence, existing docs)
+before documenting; do NOT ask for a detailed brief. By default write the documentation
+package to `products/{product}/working/domain-docs/{domain-slug}/` unless the user
+names another home.
+
+Disambiguation vs codebase-to-domain-doc: that agent turns a definitions tree or a
+module-name list into a business-language glossary plus evidence map across whole
+repos ("domain definitions", "domain glossary" → agent). This skill deep-documents
+ONE named domain/capability — boundaries, concepts, rules, workflows, technical
+context, decisions — from all available evidence, producing a multi-file package.
+
 ## Working with product codebases
 
 Each product in `products/` has a `codebase/` directory containing a symlink (or clone)
