@@ -92,6 +92,28 @@ Triggers on any of:
 On match: read `agents/context-to-prd/CLAUDE.md`, set ACTIVE_PRODUCT from context or ask,
 then run phases in sequence.
 
+### dev-env-deployer (`agents/dev-env-deployer/`)
+
+Triggers on any of:
+- "deploy [branch / PR URL / Jira key] to a dev env" / "deploy … to devX"
+- "put [branch] on a dev box" / "which dev envs are free?"
+- "release devX" / "unhold devX"
+
+On match: read `agents/dev-env-deployer/CLAUDE.md` and `skills/engineering/deployer/SKILL.md`,
+then run the pipeline. Never deploys without one explicit approval naming env + branch; only
+`dev1`..`dev9`. Requires VPN and `DEPLOYER_SID` in `personal/credentials/deployer.env`.
+
+### dev-env-inspector (`agents/dev-env-inspector/`)
+
+Triggers on any of:
+- "check [feature / Jira key / branch] on devX" / "how does it behave on devX?"
+- "check the logs on devX" / "what's in the listing_syncer logs on devX?"
+- "is [branch] deployed on devX?"
+
+On match: read `agents/dev-env-inspector/CLAUDE.md` and run the pipeline. **Read-only**: all SSH
+goes through `agents/dev-env-inspector/scripts/dev-ssh.py`; nothing is created or modified on a
+dev box — anything that must change there goes through Deployer (`dev-env-deployer`).
+
 ### jira-to-pr (`agents/jira-to-pr/`)
 
 Triggers on any of:
