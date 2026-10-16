@@ -1,0 +1,23 @@
+[Unit]
+Description=Run the Sentry daily triage digest each weekday morning
+
+[Timer]
+# 08:12 on weekdays. Deliberately not 08:00 — an off-minute avoids the
+# every-scheduler-on-earth pile-up, and nobody notices twelve minutes.
+# Weekdays only: a Saturday digest nobody reads trains you to ignore it.
+OnCalendar=Mon..Fri 08:12
+
+# Fire on wake if the machine was asleep at 08:12. Without this a closed
+# laptop silently means no digest and no indication one was missed.
+Persistent=true
+
+# Spread the start a little; also lets the VPN settle after a resume.
+RandomizedDelaySec=4min
+
+# Wait for the VPN after a cold boot rather than aborting immediately.
+OnBootSec=3min
+
+Unit=sentry-daily-triage.service
+
+[Install]
+WantedBy=timers.target

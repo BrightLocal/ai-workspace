@@ -1,0 +1,28 @@
+[Unit]
+Description=Sentry daily triage digest (Tools — Location & API modules)
+Documentation=file:///home/bartek/IdeaProjects/ai-workspace/ai-workspace/agents/sentry-issue-investigator/config/scheduling.md
+
+# Best-effort ordering only. A user unit cannot hard-depend on a system unit,
+# so the script re-checks the VPN itself and aborts if it is down. Do not rely
+# on this line for correctness.
+After=network-online.target
+
+[Service]
+Type=oneshot
+
+# Secrets live here, not in this unit file. chmod 600.
+EnvironmentFile=%h/.config/sentry-daily-triage.env
+
+ExecStart=%h/IdeaProjects/ai-workspace/ai-workspace/agents/sentry-issue-investigator/scripts/daily-triage.sh
+
+# The script's own timeout is 15 min; this is the outer backstop.
+TimeoutStartSec=20min
+
+# One retry ~5 min later covers a VPN that reconnects just after wake. The
+# script is idempotent — a second run overwrites the same dated digest.
+Restart=on-failure
+RestartSec=5min
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sentry-daily-triage
