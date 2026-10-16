@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sentry-issue-investigator — how it works</title>
+<style>
+  :root{
+    --ink:#1a2233; --muted:#5b6678; --faint:#8b93a5;
+    --accent:#2563eb; --accent-soft:#e8effd;
+    --good:#0e8a5f; --good-soft:#e2f5ec;
+    --warn:#b45309; --warn-soft:#fdf1e0;
+    --bad:#b91c1c;  --bad-soft:#fdeaea;
+    --card:#f6f8fb; --line:#dfe4ec; --bg:#ffffff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  @page{ size:338.7mm 190.5mm; margin:0; }
+  html,body{background:#eceef2; font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--ink);}
+  .slide{
+    width:338.7mm; height:190.5mm; background:var(--bg);
+    page-break-after:always; break-after:page; overflow:hidden;
+    padding:16mm 20mm 12mm 20mm; position:relative; margin:0 auto 8px auto;
+    display:flex; flex-direction:column;
+  }
+  .slide:last-child{page-break-after:auto;}
+  kicker, .kicker{display:block; font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:6mm;}
+  h1{font-size:52px; line-height:1.12; font-weight:800; letter-spacing:-.015em;}
+  h2{font-size:38px; line-height:1.15; font-weight:800; letter-spacing:-.01em; margin-bottom:8mm;}
+  h3{font-size:20px; font-weight:700;}
+  p,li{font-size:19px; line-height:1.5; color:var(--ink);}
+  .muted{color:var(--muted);}
+  .small{font-size:15px;}
+  .footer{position:absolute; bottom:7mm; left:20mm; right:20mm; display:flex; justify-content:space-between; font-size:12px; color:var(--faint);}
+  .grow{flex:1; display:flex; flex-direction:column; justify-content:center;}
+  .cols{display:flex; gap:10mm; align-items:stretch;}
+  .col{flex:1;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:7mm;}
+  .card h3{margin-bottom:3mm;}
+  .card p{font-size:17px; color:var(--muted);}
+  .pill{display:inline-block; border-radius:999px; padding:2px 14px; font-size:15px; font-weight:700;}
+  .quote{border-left:6px solid var(--accent); padding:4mm 8mm; background:var(--accent-soft); border-radius:0 12px 12px 0; font-size:24px; font-weight:600; line-height:1.4;}
+  .big-steps{display:flex; gap:6mm; margin-top:4mm;}
+  .step{flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:6mm; position:relative;}
+  .step .n{position:absolute; top:-14px; left:14px; background:var(--accent); color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;}
+  .step h3{font-size:18px; margin:3mm 0 2mm;}
+  .step p{font-size:15px; color:var(--muted); line-height:1.45;}
+  table{border-collapse:collapse; width:100%;}
+  th{font-size:15px; text-align:left; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); padding:0 6mm 3mm 0;}
+  td{font-size:18px; padding:3.2mm 6mm 3.2mm 0; border-top:1px solid var(--line); vertical-align:top;}
+  .mono{font-family:'Consolas','Menlo',monospace; font-size:16px;}
+  .chat{background:#10182b; color:#dbe4ff; border-radius:12px; padding:5mm 7mm; font-family:'Consolas','Menlo',monospace; font-size:17px; line-height:1.9;}
+  .chat .u{color:#8fd0ff;}
+  ul.space li{margin-bottom:4mm;}
+  .center{ text-align:center; }
+</style>
+</head>
+<body>
+
+<!-- 1 · TITLE -->
+<section class="slide">
+  <div class="grow">
+    <span class="kicker">AI workspace · agent showcase</span>
+    <h1>sentry-issue-investigator</h1>
+    <p style="font-size:28px; margin-top:8mm; max-width:250mm;" class="muted">
+      An AI agent that investigates our production errors —<br>
+      <strong style="color:var(--ink)">and has to prove every answer it gives.</strong>
+    </p>
+    <div style="margin-top:14mm; display:flex; gap:5mm;">
+      <span class="pill" style="background:var(--accent-soft); color:var(--accent);">Tools · Location &amp; API modules</span>
+      <span class="pill" style="background:var(--good-soft); color:var(--good);">Read-only by construction</span>
+      <span class="pill" style="background:var(--warn-soft); color:var(--warn);">Every write needs a human "yes"</span>
+    </div>
+  </div>
+  <div class="footer"><span>Bartek Suchecki · BrightLocal</span><span>1</span></div>
+</section>
+
+<!-- 2 · THE PROBLEM -->
+<section class="slide">
+  <span class="kicker">Why build this</span>
+  <h2>Production errors are cheap to create and expensive to understand</h2>
+  <div class="grow"><div class="cols">
+    <div class="col card">
+      <h3>📈 The backlog never sleeps</h3>
+      <p>Sentry collects thousands of events across our modules. Nobody has time to look at all of them, so triage happens by gut feel — or not at all.</p>
+    </div>
+    <div class="col card">
+      <h3>⏱️ Each investigation costs hours</h3>
+      <p>Stack trace → code → production logs → maybe the database. It's skilled, repetitive detective work that pulls an engineer out of sprint work every time.</p>
+    </div>
+    <div class="col card" style="border-color:var(--bad); background:var(--bad-soft);">
+      <h3>🎭 The worst outcome isn't "no answer"</h3>
+      <p style="color:var(--ink);">It's a <strong>confident wrong diagnosis</strong>. A plausible story gets a ticket, the ticket gets a fix, the fix closes — and the system is still broken.</p>
+    </div>
+  </div></div>
+  <p class="muted" style="margin-top:6mm;">This agent automates the detective work — with rules specifically designed to make the third outcome impossible.</p>
+  <div class="footer"><span>sentry-issue-investigator</span><span>2</span></div>
+</section>
+
+<!-- 3 · WHAT IT DOES -->
+<section class="slide">
+  <span class="kicker">What it does</span>
+  <h2>From an error alert to an evidence-backed diagnosis</h2>
+  <div class="grow">
+    <div class="big-steps">
+      <div class="step"><span class="n">1</span><h3>Reads the error</h3><p>Pulls the issue from Sentry: stack trace, frequency, how many users, when it started.</p></div>
+      <div class="step"><span class="n">2</span><h3>Reads the actual code</h3><p>Follows the trace into our repository and reads the real function — not a guess about it.</p></div>
+      <div class="step"><span class="n">3</span><h3>Checks production logs</h3><p>Tests its hypothesis against what production actually recorded (Elasticsearch).</p></div>
+      <div class="step"><span class="n">4</span><h3>Checks production data</h3><p>Optionally inspects the database — through a read-only gate, only when enabled.</p></div>
+      <div class="step" style="border-color:var(--accent); background:var(--accent-soft);"><span class="n">5</span><h3>Delivers a verdict</h3><p>A written diagnosis where every causal claim carries evidence — then, if we agree: ticket → fix plan → PR.</p></div>
+    </div>
+    <p style="margin-top:8mm; font-size:20px;"><strong>It never writes application code itself.</strong> Implementation is handed to a separate agent, and only after an explicit go-ahead.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>3</span></div>
+</section>
+
+<!-- 4 · GOLDEN RULE -->
+<section class="slide">
+  <span class="kicker">The golden rule</span>
+  <h2>It is not allowed to tell a plausible story</h2>
+  <div class="grow">
+    <p style="margin-bottom:6mm; font-size:20px;">Every link in the causal chain is a <strong>claim</strong>, and every claim must end with one of four verdicts:</p>
+    <table>
+      <tr><th style="width:34mm;">Verdict</th><th>Plain meaning</th></tr>
+      <tr><td><span class="pill" style="background:var(--good-soft); color:var(--good);">OBSERVED</span></td><td>A tool result shows it directly.</td></tr>
+      <tr><td><span class="pill" style="background:var(--good-soft); color:var(--good);">CONFIRMED</span></td><td>It predicted what production would contain, went and looked, and found it.</td></tr>
+      <tr><td><span class="pill" style="background:var(--bad-soft); color:var(--bad);">REFUTED</span></td><td>It predicted, looked properly — and the prediction failed. The hypothesis is wrong; revise it.</td></tr>
+      <tr><td><span class="pill" style="background:var(--warn-soft); color:var(--warn);">UNTESTABLE</span></td><td>Nothing in production can answer it today → it must propose the logging that would.</td></tr>
+    </table>
+    <p class="quote" style="margin-top:7mm;">"Sounds right" is not a verdict. The final summary may never sound more confident than the evidence table beneath it.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>4</span></div>
+</section>
+
+<!-- 5 · HOW AN INVESTIGATION RUNS -->
+<section class="slide">
+  <span class="kicker">How an investigation runs</span>
+  <h2>It tries to prove itself wrong</h2>
+  <div class="grow">
+    <svg viewBox="0 0 1240 300" style="width:100%; height:auto;">
+      <defs>
+        <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8b93a5"/></marker>
+      </defs>
+      <g font-family="Segoe UI, Arial" font-size="19">
+        <rect x="10"  y="60" width="200" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="110" y="105" text-anchor="middle" font-weight="700">Form a</text>
+        <text x="110" y="132" text-anchor="middle" font-weight="700">hypothesis</text>
+        <rect x="270" y="60" width="230" height="110" rx="14" fill="#e8effd" stroke="#2563eb"/>
+        <text x="385" y="98"  text-anchor="middle" font-weight="700" fill="#2563eb">Write the prediction</text>
+        <text x="385" y="125" text-anchor="middle" font-weight="700" fill="#2563eb">BEFORE looking</text>
+        <text x="385" y="152" text-anchor="middle" font-size="15" fill="#5b6678">what the logs must contain if true</text>
+        <rect x="560" y="60" width="200" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="660" y="105" text-anchor="middle" font-weight="700">Check production</text>
+        <text x="660" y="132" text-anchor="middle" font-weight="700">logs &amp; data</text>
+        <rect x="820" y="60" width="170" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="905" y="118" text-anchor="middle" font-weight="700">Verdict</text>
+        <rect x="1050" y="20" width="180" height="80" rx="14" fill="#e2f5ec" stroke="#0e8a5f"/>
+        <text x="1140" y="55" text-anchor="middle" font-weight="700" fill="#0e8a5f">Confirmed →</text>
+        <text x="1140" y="80" text-anchor="middle" font-weight="700" fill="#0e8a5f">report it</text>
+        <rect x="1050" y="140" width="180" height="80" rx="14" fill="#fdeaea" stroke="#b91c1c"/>
+        <text x="1140" y="175" text-anchor="middle" font-weight="700" fill="#b91c1c">Refuted →</text>
+        <text x="1140" y="200" text-anchor="middle" font-weight="700" fill="#b91c1c">revise, retest</text>
+        <line x1="210" y1="115" x2="262" y2="115" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr)"/>
+        <line x1="500" y1="115" x2="552" y2="115" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr)"/>
+        <line x1="760" y1="115" x2="812" y2="115" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr)"/>
+        <line x1="990" y1="95"  x2="1042" y2="65"  stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr)"/>
+        <line x1="990" y1="140" x2="1042" y2="170" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr)"/>
+        <path d="M 1140 220 L 1140 265 L 110 265 L 110 175" fill="none" stroke="#b91c1c" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arr)"/>
+        <text x="620" y="288" text-anchor="middle" font-size="15" fill="#b91c1c">a disproved hypothesis goes back to the start — capped at three rounds, then it reports what survived and what's still open</text>
+      </g>
+    </svg>
+    <p style="margin-top:6mm; font-size:20px;">Writing the prediction <em>first</em> is the whole trick — it stops a query result from being re-interpreted afterwards to fit the story. The same discipline scientists use, applied to log searches.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>5</span></div>
+</section>
+
+<!-- 6 · NO LOGS FOUND -->
+<section class="slide">
+  <span class="kicker">The subtle failure it refuses to make</span>
+  <h2>"No logs found" is not an answer</h2>
+  <div class="grow">
+    <p style="font-size:20px; margin-bottom:7mm;">An empty search result can mean four completely different things. Before it's allowed to say <em>"this didn't happen"</em>, three sanity checks must pass:</p>
+    <div class="cols">
+      <div class="col card"><h3>1 · Is the data still there?</h3><p>Production logs are kept ~31 days. If the event is older, the evidence <em>existed and expired</em> — that's "re-check on recurrence", not "didn't happen".</p></div>
+      <div class="col card"><h3>2 · Did that log ship at all?</h3><p>If the whole log file is empty for that server and hour, the log isn't reaching our search system — an observability gap worth its own ticket.</p></div>
+      <div class="col card"><h3>3 · Can my search even match?</h3><p>The search pattern must be shown to match <em>somewhere</em>. If it can't, the query is broken — not the hypothesis.</p></div>
+    </div>
+    <p class="quote" style="margin-top:8mm;">A disconnected VPN and a genuinely quiet system look identical in a results pane: both empty. These checks are how the agent never confuses one for the other.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>6</span></div>
+</section>
+
+<!-- 7 · MORNING TRIAGE -->
+<section class="slide">
+  <span class="kicker">Runs by itself</span>
+  <h2>A triage digest every weekday morning, 08:12</h2>
+  <div class="grow"><div class="cols">
+    <div class="col">
+      <h3 style="margin-bottom:4mm;">What it surfaces first</h3>
+      <p class="muted" style="margin-bottom:4mm;">Raw frequency buries what matters. Before the big table, it flags:</p>
+      <ul class="space">
+        <li>🆕 <strong>Brand-new</strong> — appeared in the last 24h (which deploy introduced it?)</li>
+        <li>🔁 <strong>Came back</strong> — was fixed before; the strongest signal there is</li>
+        <li>📈 <strong>Spiking</strong> — rising fast, even from a small base</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3 style="margin-bottom:4mm;">Every issue gets a decision — none skipped</h3>
+      <table>
+        <tr><td style="border:none;"><span class="pill" style="background:var(--bad-soft); color:var(--bad);">ACT NOW</span></td><td style="border:none;">Worth fixing this sprint or next — <strong>only these become Jira tickets</strong></td></tr>
+        <tr><td><span class="pill" style="background:var(--warn-soft); color:var(--warn);">SNOOZE</span></td><td>Real, not urgent — always with a <strong>numeric threshold</strong> that brings it back ("revisit above 500 events/week")</td></tr>
+        <tr><td><span class="pill" style="background:var(--card); color:var(--muted); border:1px solid var(--line);">IGNORE</span></td><td>Safe to leave — with the reason written down</td></tr>
+      </table>
+      <p class="small muted" style="margin-top:4mm;">Tickets nobody will pick up cost the board's signal-to-noise and buy nothing — so they don't get filed.</p>
+    </div>
+  </div></div>
+  <p class="muted" style="margin-top:4mm;">The scheduled run is <strong>look-and-report only</strong> — it cannot file, resolve or snooze anything. And if the environment is unhealthy it says "SKIPPED — not an all-clear" rather than faking a quiet morning.</p>
+  <div class="footer"><span>sentry-issue-investigator</span><span>7</span></div>
+</section>
+
+<!-- 8 · WHEN IT CAN'T PROVE -->
+<section class="slide">
+  <span class="kicker">When the evidence runs out</span>
+  <h2>"I don't know" comes with a plan to make it knowable</h2>
+  <div class="grow">
+    <div class="cols">
+      <div class="col card" style="border-color:var(--bad); background:var(--bad-soft);">
+        <h3>What it will <u>not</u> do</h3>
+        <p style="color:var(--ink); font-size:18px;">Guess a root cause to look decisive. A fix shipped against a guess produces <strong>a closed ticket and a still-broken system</strong> — worse than an open ticket.</p>
+      </div>
+      <div class="col card" style="border-color:var(--good); background:var(--good-soft);">
+        <h3>What it does instead</h3>
+        <p style="color:var(--ink); font-size:18px;">Proposes <strong>exactly what to log</strong> — which file, which line, what to record — so the <em>next</em> occurrence answers the question definitively.</p>
+      </div>
+    </div>
+    <p style="margin-top:7mm; font-size:20px;">Each proposal comes with the search it would enable (written in advance), the expected data volume, a privacy check — and <strong>how long until it pays off</strong>, calculated from the real error rate: <span class="muted">"at ~12 events/day, one day after deploy is enough."</span></p>
+    <p style="margin-top:5mm; font-size:20px;">That number lets us judge whether instrumenting is worth it <em>before</em> agreeing to it.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>8</span></div>
+</section>
+
+<!-- 9 · HUMAN IN THE LOOP -->
+<section class="slide">
+  <span class="kicker">Human in the loop</span>
+  <h2>Three gates — never chained on a single "yes"</h2>
+  <div class="grow">
+    <svg viewBox="0 0 1240 250" style="width:100%; height:auto;">
+      <defs><marker id="arr2" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8b93a5"/></marker></defs>
+      <g font-family="Segoe UI, Arial" font-size="19">
+        <rect x="10" y="70" width="240" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="130" y="115" text-anchor="middle" font-weight="700">Investigation</text>
+        <text x="130" y="143" text-anchor="middle" font-size="15" fill="#5b6678">read-only · no approval needed</text>
+        <g>
+          <circle cx="330" cy="125" r="30" fill="#fdf1e0" stroke="#b45309" stroke-width="2"/>
+          <text x="330" y="118" text-anchor="middle" font-size="13" fill="#b45309" font-weight="800">GATE</text>
+          <text x="330" y="137" text-anchor="middle" font-size="17" fill="#b45309" font-weight="800">1</text>
+        </g>
+        <rect x="400" y="70" width="220" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="510" y="115" text-anchor="middle" font-weight="700">Jira ticket</text>
+        <text x="510" y="143" text-anchor="middle" font-size="15" fill="#5b6678">draft shown in full first</text>
+        <g>
+          <circle cx="700" cy="125" r="30" fill="#fdf1e0" stroke="#b45309" stroke-width="2"/>
+          <text x="700" y="118" text-anchor="middle" font-size="13" fill="#b45309" font-weight="800">GATE</text>
+          <text x="700" y="137" text-anchor="middle" font-size="17" fill="#b45309" font-weight="800">2</text>
+        </g>
+        <rect x="770" y="70" width="220" height="110" rx="14" fill="#f6f8fb" stroke="#dfe4ec"/>
+        <text x="880" y="115" text-anchor="middle" font-weight="700">Fix plan</text>
+        <text x="880" y="143" text-anchor="middle" font-size="15" fill="#5b6678">posted as ticket comment</text>
+        <g>
+          <circle cx="1070" cy="125" r="30" fill="#fdf1e0" stroke="#b45309" stroke-width="2"/>
+          <text x="1070" y="118" text-anchor="middle" font-size="13" fill="#b45309" font-weight="800">GATE</text>
+          <text x="1070" y="137" text-anchor="middle" font-size="17" fill="#b45309" font-weight="800">3</text>
+        </g>
+        <rect x="1130" y="70" width="100" height="110" rx="14" fill="#e8effd" stroke="#2563eb"/>
+        <text x="1180" y="120" text-anchor="middle" font-weight="700" fill="#2563eb">PR</text>
+        <text x="1180" y="145" text-anchor="middle" font-size="14" fill="#5b6678">via jira-to-pr</text>
+        <line x1="250" y1="125" x2="292" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <line x1="368" y1="125" x2="392" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <line x1="620" y1="125" x2="662" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <line x1="738" y1="125" x2="762" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <line x1="990" y1="125" x2="1032" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <line x1="1108" y1="125" x2="1122" y2="125" stroke="#8b93a5" stroke-width="2.5" marker-end="url(#arr2)"/>
+        <text x="620" y="232" text-anchor="middle" font-size="16" fill="#5b6678">approving a ticket ≠ approving a plan ≠ approving implementation — each gate is its own question, in its own moment</text>
+      </g>
+    </svg>
+    <div class="cols" style="margin-top:5mm;">
+      <div class="col card"><h3>Duplicates blocked</h3><p>Before filing anything it searches Jira for an existing ticket on that error — and stops if one exists.</p></div>
+      <div class="col card"><h3>Regressions get named</h3><p>If the existing ticket is <em>closed</em>, that's a returned bug — a previous fix didn't hold. It says so prominently instead of quietly filing a duplicate.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>9</span></div>
+</section>
+
+<!-- 10 · SAFETY -->
+<section class="slide">
+  <span class="kicker">Safe by construction</span>
+  <h2>Read-only isn't a promise — it's how it's built</h2>
+  <div class="grow">
+    <table>
+      <tr><th style="width:70mm;">Surface</th><th>Guarantee</th></tr>
+      <tr><td><strong>Application code</strong></td><td>Never edits it. Implementation goes through a separate agent, behind Gate 3.</td></tr>
+      <tr><td><strong>Production database</strong></td><td>One sanctioned path: a SELECT-only query runner with a parser guard, a read-only transaction, and rollback-on-exit. The guard survived a <strong>17-attempt bypass test</strong> — and its one honest limitation is documented, with a server-side read-only account closing it.</td></tr>
+      <tr><td><strong>Production logs</strong></td><td>Search tools only — the delete/update tools that exist on that server are never called.</td></tr>
+      <tr><td><strong>Jira &amp; Sentry</strong></td><td>Every write shown in full and confirmed first; never resolves, assigns or edits anything unasked.</td></tr>
+      <tr><td><strong>The morning digest</strong></td><td>Runs against an explicit tool allowlist with every write tool denied — safety doesn't depend on the AI behaving, it's enforced outside it.</td></tr>
+    </table>
+    <p class="quote" style="margin-top:7mm;">The design assumption: an agent you can trust is one that <em>couldn't</em> misbehave, not one that promised it wouldn't.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>10</span></div>
+</section>
+
+<!-- 11 · WHAT YOU GET -->
+<section class="slide">
+  <span class="kicker">Artifacts</span>
+  <h2>What actually lands on your desk</h2>
+  <div class="grow"><div class="cols">
+    <div class="col card">
+      <h3>🔍 Investigation report</h3>
+      <p>A verdict up top, a claim-by-claim evidence table beneath it, the causal mechanism built only from proven links — and a "what I could not determine" section that stays honest.</p>
+    </div>
+    <div class="col card">
+      <h3>🌅 Daily digest + Slack TL;DR</h3>
+      <p>The morning triage file with signals, the ranked table and a 2–3 issue "what deserves attention today" read — TL;DR posted to Slack.</p>
+    </div>
+    <div class="col card">
+      <h3>🎫 Tickets that fit the team</h3>
+      <p>Filed in the right project, right issue type, right priority — following the conventions derived from what the team actually does, with the Sentry link, quantified impact and acceptance criteria.</p>
+    </div>
+    <div class="col card">
+      <h3>🔧 Instrumentation proposals</h3>
+      <p>When the cause can't be proven: the exact logging change that would prove it, and the time-to-answer that says whether it's worth it.</p>
+    </div>
+  </div></div>
+  <p class="muted" style="margin-top:6mm;">Everything is written to the workspace as reviewable files — the chat summary is never the only record.</p>
+  <div class="footer"><span>sentry-issue-investigator</span><span>11</span></div>
+</section>
+
+<!-- 12 · HOW TO USE -->
+<section class="slide">
+  <span class="kicker">Using it</span>
+  <h2>You talk to it in plain language</h2>
+  <div class="grow">
+    <div class="chat">
+      <div><span class="u">›</span> what's breaking in Tools right now?</div>
+      <div><span class="u">›</span> list the top sentry issues in the location module</div>
+      <div><span class="u">›</span> investigate TOOLS-BACKEND-B77</div>
+      <div><span class="u">›</span> find the production logs for this error</div>
+      <div><span class="u">›</span> what would we need to log to know?</div>
+      <div><span class="u">›</span> create a Jira ticket for this &nbsp;<span style="color:#7c8db5;">← Gate 1</span></div>
+      <div><span class="u">›</span> add the fix plan to the ticket &nbsp;<span style="color:#7c8db5;">← Gate 2</span></div>
+      <div><span class="u">›</span> implement it &nbsp;<span style="color:#7c8db5;">← Gate 3 → branch, commits, PR</span></div>
+    </div>
+    <p style="margin-top:7mm; font-size:20px;">Setup is three internal integrations (Sentry, Elasticsearch, Jira) plus the VPN — documented step-by-step in the agent's own README, including the failure modes it already knows about.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator</span><span>12</span></div>
+</section>
+
+<!-- 13 · WHAT'S NEXT -->
+<section class="slide">
+  <span class="kicker">Where this goes next</span>
+  <h2>The roadmap the agent wrote for itself</h2>
+  <div class="grow">
+    <ul class="space" style="max-width:270mm;">
+      <li><strong>One join key everywhere.</strong> Its most-proposed improvement: tag every error with the request ID and every log line with the error ID — turning "these two events happened within 2 minutes of each other" into an exact match. Retires its own biggest weakness.</li>
+      <li><strong>More structured logs.</strong> Where services already log structured data, correlation is a real join today — extend that to the rest of Tools.</li>
+      <li><strong>Wider module coverage.</strong> Scoped to Location &amp; API today; the method transfers to any module — and to other teams' boards.</li>
+      <li><strong>The pattern generalises.</strong> Claim ledgers, controls before negatives, and human gates aren't Sentry-specific — they're a template for any AI agent we want to trust with production questions.</li>
+    </ul>
+    <p class="quote" style="margin-top:8mm;">The goal was never "an AI that answers faster." It's an AI whose answers you can check — and whose silence you can trust.</p>
+  </div>
+  <div class="footer"><span>sentry-issue-investigator · questions welcome</span><span>13</span></div>
+</section>
+
+</body>
+</html>
