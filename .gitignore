@@ -29,3 +29,7 @@ agents/jira-to-pr/workspace/
 # UI — dependencies and build output
 ui/node_modules/
 ui/client/dist/
+
+# Python bytecode
+__pycache__/
+*.pyc
