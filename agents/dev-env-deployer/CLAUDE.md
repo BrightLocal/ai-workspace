@@ -18,7 +18,7 @@ word-split a `$DEPLOYER` variable.
 | Input | Resolved how |
 |---|---|
 | Branch | Given directly · from a PR URL (`gh pr view <url> --json headRefName,url,state`) · from a Jira key (`gh pr list --repo BrightLocal/<repo> --state open --search "<KEY>" --json headRefName,url,title`). Several candidate PRs ⇒ ask which one. None ⇒ ask for the branch. |
-| Repo | Tools unless the PR / user says ListingSyncer (`--repo` value — see the skill's "Repos" note; LS repo name on Deployer is unverified, confirm it with `envs --repo <name>` first). |
+| Repo | Tools unless the PR / user says ListingSyncer (`--repo Tools` / `--repo ListingSyncer`). |
 | Env | Optional. If named it must match `dev[1-9]`; otherwise picked from `envs --free`. |
 
 ## Pipeline
@@ -67,7 +67,9 @@ Tools: `agents/dev-env-inspector/scripts/dev-ssh.py <env> 'cat ~/tools/.revision
 the `Commit:` sha must be a prefix of the deployed sha. Mismatch ⇒ say so plainly (someone else may
 have deployed over it; check `DEPLOYER status <env>`).
 ListingSyncer: `… dev-ssh.py <env> "docker ps --format '{{.Names}} {{.Image}} {{.Status}}'"` —
-`listing_syncer` must have been (re)started after the deploy began.
+`listing_syncer` must have been (re)started after the deploy began. The start time alone does not
+prove the branch: also grep a line the PR adds,
+`… dev-ssh.py <env> "docker exec listing_syncer grep -c '<marker>' /var/www/src/<file>"`.
 
 ### 5. Report
 

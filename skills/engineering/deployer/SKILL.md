@@ -68,10 +68,9 @@ Exit codes: **0** deployed / ok · **1** deploy failed (build/deploy step, or lo
 ### Repos
 
 `--repo` defaults to `Tools`. Deployer is keyed by repo name; other services deployed to dev
-boxes (e.g. ListingSyncer — the `listing_syncer` container on `devX` runs image
-`listing_syncer_new:devX`) have their own Deployer repo. The exact Deployer repo name for LS is
-**not yet verified** — confirm with `envs --repo <name>` (an unknown repo fails with
-`repo "…" not found`) and record the verified name here.
+boxes have their own Deployer repo. ListingSyncer's is `ListingSyncer` (verified 2026-10-16; the
+`listing_syncer` container on `devX` runs image `listing_syncer_new:devX`). A ticket with PRs in
+both: deploy ListingSyncer first, then Tools.
 
 ## Policy (rules for any agent using this skill)
 
@@ -119,3 +118,5 @@ All calls carry `Cookie: deployer-sid=<SID>`, base `https://deployer.bll-i.co.uk
 | `… is reserved by X` | Expected. Ask X, or pick another `envs --free` row. |
 | `… is already deploying` | Someone else's deploy is running; wait or pick another env. |
 | `deploy FAILED` (exit 1) | Usually a build error on the branch — full log on deployer.bll-i.co.uk. |
+| Web requests 500 with `Failed to create "/var/cache/tools/temp/tools": mkdir(): Permission denied` for 20–60 s after a Tools deploy | The box rebuilds its container cache. Wait a minute before testing; a problem only if it persists. |
+| Every ListingSyncer call 500s after its container idled a day or more; container output `2006 MySQL server has gone away` | Stale MySQL pool. Redeploy ListingSyncer — the only sanctioned restart. |

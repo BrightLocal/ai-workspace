@@ -35,19 +35,19 @@ agents/dev-env-inspector/scripts/dev-ssh.py dev3 '<command>' [--timeout 60]
 skills/engineering/deployer/scripts/deployer.mjs status dev3     # read-only here: status / envs
 ```
 
-## What lives where on a dev box (verified on dev1/dev3, 2026-10-12)
+## What lives where on a dev box (verified on dev1/dev3 2026-10-12, dev2 2026-10-16)
 
 | What | Where / how |
 |---|---|
 | Tools code | `/home/sites/tools` — a build artifact, **not** a git checkout |
 | Deployed Tools commit | `cat ~/tools/.revision` → `Commit: <sha11>` + build time |
-| Tools PHP / Monolog | `/var/log/php-errors.log` (+ `.1`) — Monolog is NOTICE+ only; info/debug never land here |
+| Tools PHP / Monolog | `/var/log/php-errors.log` (+ `.1`), one JSON record per line (`level_name`, `message`, `context`). Levels vary by box: dev1 and dev2 write DEBUG/INFO, dev3's recent lines were all ERROR (2026-10-16); prod ships NOTICE+ only. A failed Tools → ListingSyncer call shows as WARNING `Guzzle wrong response` with the LS URI and status code |
 | Tools app logs | `/var/log/tools/` — `resource.log` (~500 MB: always `tail`/`grep … \| tail`), `directories_usage.log`, `crunz-errors.log`, `workers/`, `log/` |
 | Workers / websockets | worker errors `/var/log/tools/workers/error-<Worker>.log`; `/var/log/workerman.log`; worker definitions `~/tools/workers-mq/`; crons `~/tools/crons/`, schedule `~/tools/crunz.yml` |
-| Web server | `/var/log/nginx/` (`/var/log/apache2` is root-only) |
-| ListingSyncer | container `listing_syncer` (compose project `/opt/listing_syncer`, image `hub.brightlocal.dev/main/listing_syncer_new:devX`, workdir `/var/www`). Logs: stdout ⇒ `docker logs`, and files inside the container `/var/www/var/log/{dev,dev_deprecation,swoole_dev}.log` (via `docker exec listing_syncer tail …`) |
+| Web server | nginx in front of Apache. `/var/log/nginx/<env>.brightlocal.dev.ssl-{access,error}.log` are `640 www-data:adm`, unreadable as `sites` (mtime only); `/var/log/apache2` is root-only |
+| ListingSyncer | container `listing_syncer` (compose project `/opt/listing_syncer`, image `hub.brightlocal.dev/main/listing_syncer_new:devX`, workdir `/var/www`). Logs: stdout ⇒ `docker logs`, and files inside the container `/var/www/var/log/{dev,dev_deprecation,swoole_dev}.log` (via `docker exec listing_syncer tail …`). `dev.log` has `request.INFO Matched route` lines with method + URI (what reached LS); errors go to `docker logs` (console format `HH:MM:SS ERROR [app] …`). Both start fresh on each LS deploy |
 | Other containers | `wsserver`, `shuffler`, `redis-server`, `prometheus-exporters-node-1` |
-| Not readable as `sites` | `syslog`, `auth.log`, `kern.log`, `apache2/` |
+| Not readable as `sites` | `syslog`, `auth.log`, `kern.log`, `apache2/`, nginx per-site logs |
 
 If something here turns out wrong on another env, say so in the report and update this table.
 
@@ -106,7 +106,9 @@ their own manual step) and tell you when — then read the logs for that window.
 | `FAIL` | Evidence shows different behaviour — quote it, with the error / stack frame |
 | `NOT OBSERVED` | Nothing in the window either way. Before calling it, show the log source is alive (it has lines in that window) and your pattern matches *something* (e.g. widen the window). Otherwise say the check was inconclusive, and why |
 
-Remember NOTICE+ only reaches `php-errors.log`: an absent `info` line is not evidence it did not run.
+Check which levels the box writes before treating an absent `info`/`debug` line as evidence: levels
+vary by box, and prod is NOTICE+ only. Background noise that fires on its own: Braintree
+`no matching public key` errors (about every 20 min) and Planhat client errors.
 
 ### 5. Report
 
