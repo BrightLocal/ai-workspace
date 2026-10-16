@@ -165,6 +165,19 @@ and always dedupe against existing Jira tickets before creating one.
 Production DB inspection is opt-in (user exports `TOOLS_PROD_DB_DSN`) and goes
 exclusively through `scripts/db-select.py`, which is SELECT-only.
 
+### ticket-ac-verifier (`agents/ticket-ac-verifier/`)
+
+Triggers on any of:
+- "verify [Jira key] on devX" / "verify [Jira key] against its ACs"
+- "test [Jira key] against the acceptance criteria" / "QA [Jira key] on devX"
+- "deploy [Jira key] and check the flow" / "does [Jira key] meet its ACs?"
+
+On match: read `agents/ticket-ac-verifier/CLAUDE.md` and `skills/engineering/ac-verification/SKILL.md`,
+then run the pipeline. It wins over `jira-to-pr` (a bare key) and `dev-env-deployer` (deploy only)
+whenever the message asks for the ACs or the flow to be checked; checking behaviour on devX without
+either stays with `dev-env-inspector`. Deploys go through `dev-env-deployer` (one approval naming
+env + branches), box reads through `dev-ssh.py`, and a colleague's reservation is a hard stop.
+
 ## Working with product codebases
 
 Each product in `products/` has a `codebase/` directory containing a symlink (or clone)

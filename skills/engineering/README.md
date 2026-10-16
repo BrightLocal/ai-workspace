@@ -8,6 +8,9 @@
 - `deployer/SKILL.md` — deploy / release branches on `dev1`..`dev9` via Deployer (CLI in
   `deployer/scripts/deployer.mjs`). Used by `agents/dev-env-deployer/` and, read-only, by
   `agents/dev-env-inspector/`.
+- `ac-verification/SKILL.md` — check a ticket against its acceptance criteria on a dev env: ACs →
+  observable checks, deploy order (ListingSyncer, then Tools), log signals, dev-env pitfalls, report.
+  Log watch in `ac-verification/scripts/watch-dev-logs.py`. Used by `agents/ticket-ac-verifier/`.
 
 ## Suggested next skills (when you're ready)
 
