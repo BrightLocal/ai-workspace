@@ -6,6 +6,6 @@ set -eu
 if [ -n "${GH_TOKEN:-}" ]; then
   git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf git@github.com:
 fi
-git config --global --add safe.directory '*'
+git config --global --replace-all safe.directory '*'
 
 exec "$@"

@@ -1,5 +1,8 @@
 # n8n Workflow Setup Guide
 
+> **Note:** This guide describes the legacy/future server (n8n) deployment. The current
+> local MVP (label poller on the laptop) is described in `local-poller.md`.
+
 This guide explains how to configure n8n to automatically trigger the jira-to-pr agent
 when a Jira task is assigned to the bot user.
 
