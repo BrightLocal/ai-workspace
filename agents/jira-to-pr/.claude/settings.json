@@ -29,15 +29,16 @@
       "Bash(wc *)",
       "Bash(ls *)",
       "Bash(pwd)",
-      "Bash(which *)",
-      "mcp__*"
+      "Bash(which *)"
     ],
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push -f *)",
       "Bash(git reset --hard*)",
-      "Bash(git stash*)",
-      "Bash(git clean*)",
+      "Bash(git stash)",
+      "Bash(git stash *)",
+      "Bash(git clean)",
+      "Bash(git clean -*)",
       "Bash(git push --delete*)",
       "Bash(git push -f*)",
       "Bash(git push +*)",
@@ -49,14 +50,22 @@
       "Bash(git push * +*)",
       "Bash(git push * --force*)",
       "Bash(git push * -f*)",
-      "Bash(git -C * stash*)",
+      "Bash(git -C * stash)",
+      "Bash(git -C * stash *)",
       "Bash(git -C * reset --hard*)",
-      "Bash(git -C * clean*)",
+      "Bash(git -C * clean)",
+      "Bash(git -C * clean -*)",
       "Bash(git -C * push*--force*)",
       "Bash(git -C * push * -f*)",
       "Bash(git * push * +*)",
       "Bash(git * push * --delete*)",
       "Bash(git -C * push * --delete*)",
+      "Bash(git push*--mirror*)",
+      "Bash(git -C * push*--mirror*)",
+      "Bash(git push*--prune*)",
+      "Bash(git -C * push*--prune*)",
+      "Bash(git push * :**)",
+      "Bash(git * push * :**)",
       "Bash(rm -rf *)",
       "Bash(composer install*)",
       "Bash(composer update*)",
@@ -90,5 +99,5 @@
       "Bash(gh api * --method DELETE*)"
     ]
   },
-  "_comment": "Settings for the headless jira-to-pr agent (run with cwd agents/jira-to-pr). Edits allowed only in workspace/ and the two real checkouts (absolute, symlink-resolved paths of products/*/codebase/*). curl is limited to the Jira REST API; local HTTP checks run via docker exec inside the stack containers (config/environments/local.md). node is limited to the lockcheck CLI. Bash(scripts/*) was removed: the agent must not run run-agent.sh (would spawn a nested run) or clone-repos.sh (no cloning in this mode). The deny list is a speed bump against mistakes, not a sandbox: the rules in CLAUDE.md, the subagent prompts and the target environment file remain binding. Wrapping a forbidden command in docker exec (e.g. docker exec ... sh -c '<forbidden>') is still forbidden. Known MVP gap: prompt injection via ticket text is not mitigated (trusted ticket authors, single laptop)."
+  "_comment": "Settings for the headless jira-to-pr agent (run with cwd agents/jira-to-pr). Edits allowed only in workspace/ and the two real checkouts (absolute, symlink-resolved paths of products/*/codebase/*). curl is limited to the Jira REST API; local HTTP checks run via docker exec inside the stack containers (config/environments/local.md). node is limited to the lockcheck CLI. Bash(scripts/*) was removed: the agent must not run run-agent.sh (would spawn a nested run) or clone-repos.sh (no cloning in this mode). The deny list is a speed bump against mistakes, not a sandbox: the rules in CLAUDE.md, the subagent prompts and the target environment file remain binding. Wrapping a forbidden command in docker exec (e.g. docker exec ... sh -c '<forbidden>') is still forbidden. No MCP tools are allowed: run-agent.sh passes --strict-mcp-config and ENABLE_CLAUDEAI_MCP_SERVERS=false because the run reuses Vadym's claude.ai login. Colon-refspec deletes (push origin :branch) are denied with ':**', not ':*' — a rule ending in ':*' is the legacy prefix syntax and would not expand the earlier '*'. stash/clean denies match the subcommand, not commit messages that mention those words. Known MVP gap: prompt injection via ticket text is not mitigated (trusted ticket authors, single laptop)."
 }

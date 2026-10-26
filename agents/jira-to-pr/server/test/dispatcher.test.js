@@ -92,6 +92,7 @@ function runReal(args) {
   const fake = path.join(bin, 'claude');
   fs.writeFileSync(fake, `#!/usr/bin/env bash
 jq -n '$ARGS.positional' --args -- "$@" > "$RUNS_DIR/argv.json"
+printf '%s' "\${ENABLE_CLAUDEAI_MCP_SERVERS:-unset}" > "$RUNS_DIR/claudeai-mcp.env"
 mkdir -p "$RUNS_DIR/rid"
 echo '{"status":"done","summary":"x"}' > "$RUNS_DIR/rid/result.json"
 echo '{"session_id":"sess-123","result":"ok"}'
@@ -124,6 +125,14 @@ test('run-agent.sh puts the prompt right after -p and keeps add-dir paths', () =
     path.join(tmp, 'products/ListingSyncer/codebase/ListingSyncer'),
   ]);
   assert.ok(!argv.includes('--resume'));
+});
+
+test('run-agent.sh runs claude with no MCP servers and claude.ai connectors off', () => {
+  const { p, runs, argv } = runReal(['LM-7', 'rid']);
+  assert.equal(p.status, 0, p.stderr);
+  assert.deepEqual(argv.slice(2, 7), ['--output-format', 'json', '--permission-mode', 'acceptEdits', '--strict-mcp-config']);
+  assert.ok(!argv.includes('--mcp-config'), 'no MCP config passed: strict mode loads none');
+  assert.equal(fs.readFileSync(path.join(runs, 'claudeai-mcp.env'), 'utf8'), 'false');
 });
 
 test('run-agent.sh resume keeps a hostile message verbatim in one prompt arg', () => {

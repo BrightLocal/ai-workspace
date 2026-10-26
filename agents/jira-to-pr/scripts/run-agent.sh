@@ -45,7 +45,11 @@ fi
 
 # The prompt must directly follow -p: --add-dir is variadic and would swallow
 # a trailing positional argument as another directory.
-CLAUDE_ARGS=(-p "$PROMPT" --output-format json --permission-mode acceptEdits)
+# No MCP servers in headless runs: they reuse Vadym's claude.ai login, so its connectors
+# (Gmail, Slack, Drive, Atlassian...) must not load. --strict-mcp-config without --mcp-config
+# loads none; ENABLE_CLAUDEAI_MCP_SERVERS=false turns the claude.ai connectors off as well.
+export ENABLE_CLAUDEAI_MCP_SERVERS=false
+CLAUDE_ARGS=(-p "$PROMPT" --output-format json --permission-mode acceptEdits --strict-mcp-config)
 [[ -n "${MAX_TURNS:-}" ]] && CLAUDE_ARGS+=(--max-turns "$MAX_TURNS")
 [[ -n "$RESUME_ID" ]] && CLAUDE_ARGS+=(--resume "$RESUME_ID")
 CLAUDE_ARGS+=(

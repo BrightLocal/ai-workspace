@@ -17,6 +17,8 @@ services:
       - SERVER_MODE=true
       - WORKSPACE_ROOT=/home/lenovo/brightLocal/ai-workspace
       - HOME=/home/lenovo
+      # Never load the claude.ai connectors (Gmail, Slack, Drive...) of the mounted login.
+      - ENABLE_CLAUDEAI_MCP_SERVERS=false
     volumes:
       - /home/lenovo/brightLocal/ai-workspace:/home/lenovo/brightLocal/ai-workspace:rw
       - /home/lenovo/brightLocal/Tools:/home/lenovo/brightLocal/Tools:rw
