@@ -60,8 +60,44 @@ requirement 1, so it is fixed here first.
 | Orchestrator | `CLAUDE.md` | a skill: `/jira-to-pr:run LM-1234` (plugins do not load a root `CLAUDE.md`) |
 | Shared rules | `../../shared/...` | copied into the plugin (paths with `..` fail plugin validation) |
 | Plans / logs | `workspace/plans`, `workspace/runs` | `${CLAUDE_PLUGIN_DATA}/runs/{KEY}/` (survives plugin updates, outside the repo) |
-| MCP | user-level Atlassian | plugin `.mcp.json` (Atlassian, `sentry-selfhosted`, Slack) **or** documented user-level setup — see decision D2 |
+| MCP | user-level Atlassian | engineer's existing Atlassian / Slack connectors, plugin `.mcp.json` only for `sentry-selfhosted`; subagents accept both tool-name forms — see D2 and *MCP discovery* |
 | Guard rails | prose in subagent files | `hooks/hooks.json`: PreToolUse on `git push` / `git commit`, PostToolUse on PHP edits |
+
+### Repository discovery (D1)
+
+The orchestrator runs this before anything else, and never clones without asking:
+
+1. The current directory is a git repository → `git remote get-url origin` names it:
+   `BrightLocal/Tools` or `BrightLocal/ListingSyncer` becomes the primary repo.
+2. The other repo is looked for as a sibling (`../ListingSyncer`, `../Tools` — Tools'
+   `RELATED_SERVICES.md` convention), then in `JIRA_TO_PR_REPOS_DIR` if set.
+3. Not found and the plan needs it → ask the engineer (local mode is interactive):
+   clone next to the current repo, or continue with the primary repo only. In the
+   second case the plan marks the other repo's changes as *manual* and the PR plus the
+   Jira comment describe them, exactly as `RELATED_SERVICES.md` already prescribes.
+4. Per repo, the Docker environment is probed (`.docker/.env` present,
+   `docker compose ps` shows `app` / `ls` running). The result decides whether the
+   quality gate runs or degrades to a draft PR (D3).
+5. The working tree must be clean and on the default branch. In the engineer's own
+   checkout this is more likely to fail than in an agent-owned clone: stop and ask,
+   never stash or reset.
+
+### MCP discovery (D2)
+
+- At start the orchestrator lists the tools the session actually has. Atlassian may be
+  `mcp__atlassian__*` (claude.ai connector or `claude mcp add --scope user`) or
+  `mcp__plugin_jira-to-pr_*` if a server came from the plugin; subagent `tools:` lists
+  carry both forms and the orchestrator passes the live one.
+- The plugin's `.mcp.json` carries only `sentry-selfhosted` (stdio, token in the shell
+  as PR #6 documents). Atlassian and Slack are not duplicated: most engineers already
+  have the claude.ai connectors, and a second server would mean a second OAuth and
+  duplicated tools.
+- Missing server → the preflight prints the exact command (`claude mcp add …` or the
+  connector to enable in claude.ai) and continues without that integration where it
+  can (Jira is mandatory, Sentry and Slack are not).
+- Cursor keeps its own MCP configuration; it is not visible to Claude Code. The plugin
+  targets Claude Code (CLI, VS Code / JetBrains / Cursor extensions), so servers must be
+  configured in Claude Code or as claude.ai connectors.
 
 The headless server mode (n8n → VM) stays in ai-workspace as-is. It is not part of
 the marketplace deliverable; phase 4 notes what it would need.
@@ -199,9 +235,9 @@ channel; scopes `channels:history`, `groups:history`).
      lists it under *Open questions*.
 3. **planner** reads the external context: the Sentry stack trace seeds the
    code-researcher entry points; Slack decisions become constraints or assumptions.
-4. **Modes.** Local: `sentry-selfhosted` MCP + Slack connector. Server mode: curl
-   patterns in `config/integrations.md` (Sentry Bearer token; Slack bot token).
-   New env vars in `bot.env.example`: `SENTRY_HOST`, `SENTRY_ACCESS_TOKEN`, `SLACK_BOT_TOKEN`.
+4. **Local mode only (D4).** `sentry-selfhosted` MCP and the claude.ai Slack connector.
+   In server mode the enricher does not run; links are listed as unresolved in the plan.
+   `config/integrations.md` documents the URL patterns, the MCP calls and the redaction rules.
 5. **Data hygiene.** Slack threads can contain customer data and credentials. The
    enricher redacts tokens / emails / phone numbers; external context is written
    only to the run directory (gitignored) and the plan. It is never quoted in code,
@@ -328,7 +364,7 @@ channel; scopes `channels:history`, `groups:history`).
 | Phase | Scope | Depends on | Effort |
 |---|---|---|---|
 | 0 | Branch, this plan, SQL inputs; fix the audit defects of §2 | — | done / 0.5 d |
-| 1 | Requirement 3: coding-standards, diff-lint, planner names section, code-reviewer | — | 1 d |
+| 1 | Requirement 3: coding-standards, diff-lint, planner names section, code-reviewer | — | done 2026-10-26 (verification run on a real ticket pending) |
 | 2 | Requirement 4: import script, stats + guidelines files, planner/implementer/reviewer wiring | TSV output from the user | done 2026-10-26 for the main host (`brightlocal`); no further exports planned, other schemas default to L; reviewer wiring follows phase 1 |
 | 3 | Requirement 1: quality-gate.sh, setup-quality-env.sh, push hook, Phase 4.5 loop, settings | Docker env on the dev machine (SSH to db-schemas, private Composer) | 1.5–2 d |
 | 4 | Requirement 2: external_links, context-enricher, integrations.md, env vars, MCP setup | Sentry token (1Password), Slack app/bot or connector, VPN | 1.5–2 d |
@@ -339,16 +375,16 @@ outside this repo. Each phase ends with a full run on a real, recent LM ticket i
 throw-away branch; the run log and the resulting PR link go into the PR description
 of the phase.
 
-## 9. Decisions needed
+## 9. Decisions (taken 2026-10-26)
 
-| # | Decision | Recommendation |
+| # | Decision | Outcome |
 |---|---|---|
-| D1 | Where the plugin works: engineer's checkout vs plugin-owned clones | Engineer's checkout. It is what gives us Docker, `make`, worktrees and the sibling `../ListingSyncer` convention for free. |
-| D2 | Ship `.mcp.json` in the plugin or document user-level MCP setup | Ship it (Atlassian remote with OAuth, `sentry-selfhosted` stdio, Slack) and use `mcp__plugin_jira-to-pr_*` tool names; keep a fallback section for user-level servers. |
-| D3 | Gate strictness | Hard block on `deptrac`, `di-check`, ECS, PHPStan and failing tests; soft (draft PR + note) only when the environment is missing. |
-| D4 | Slack access path | Local: claude.ai Slack connector. Server mode: a dedicated Slack app bot token; needs workspace admin to create it and to invite the bot to engineering channels. |
-| D5 | DB stats granularity in the committed file | Rounded counts and tiers only; exact TSVs stay local. |
-| D6 | Marketplace home | `.claude-plugin/marketplace.json` at the ai-workspace root pointing to `./agents/jira-to-pr`; split into its own repo only if the org-wide claude.ai distribution needs it. |
+| D1 | Where the plugin works | **Engineer's local environment.** Most engineers already have Tools with a working Docker setup; ListingSyncer should be there too but is not guaranteed. The plugin discovers what exists before it clones anything (see §3, *Repository discovery*). |
+| D2 | MCP configuration | **Ship `.mcp.json`, but respect what is already connected.** Engineers use Claude CLI, Cursor or IDE extensions and some servers are already configured. The plugin carries only `sentry-selfhosted`; Atlassian and Slack are expected from the engineer's existing claude.ai connectors or user-level `claude mcp` config, and subagents accept both tool-name forms (see §3, *MCP discovery*). |
+| D3 | Gate strictness | **Hard.** Push blocked on `deptrac`, `di-check`, ECS, PHPStan or failing tests; draft PR only when the Docker environment is missing. |
+| D4 | Slack / Sentry access | **Local mode only.** The context enricher uses MCP; no Slack bot token, no server-mode curl patterns for Slack. In server mode external links are reported as unresolved. |
+| D5 | DB stats in the repo | **Rounded counts and tiers only**, exact exports stay in the gitignored working directory. Done; no further exports planned. |
+| D6 | Marketplace home | **The organisation's existing plugin repository**, migration later. Until then the plugin stays in `agents/jira-to-pr/` and must become self-contained (phase 5); no `marketplace.json` in ai-workspace is needed for that. |
 
 ## 10. Risks
 
@@ -378,9 +414,9 @@ agents/jira-to-pr/
 │   ├── context-enricher.md            # new
 │   ├── planner.md                     # Names to introduce, Data volume impact
 │   ├── implementer.md                 # standards, gate loop, make targets
-│   └── code-reviewer.md               # new
+│   └── code-reviewer.md               # added
 ├── config/
-│   ├── coding-standards.md            # new
+│   ├── coding-standards.md            # added
 │   ├── db-table-stats.md              # generated
 │   ├── db-query-guidelines.md         # new
 │   ├── integrations.md                # Sentry / Slack, local vs server mode
@@ -390,12 +426,11 @@ agents/jira-to-pr/
 │   ├── db-table-stats.sql             # added on this branch
 │   ├── db-table-indexes.sql           # added on this branch
 │   ├── import-db-stats.py
-│   ├── diff-lint.sh
+│   ├── diff-lint.py                   # added, with scripts/tests/test-diff-lint.sh
 │   ├── quality-gate.sh
 │   ├── setup-quality-env.sh
 │   └── hooks/guard-git-push.sh
 ├── hooks/hooks.json
 ├── .mcp.json
-└── .claude-plugin/plugin.json
-.claude-plugin/marketplace.json        # repo root
+└── .claude-plugin/plugin.json         # phase 5; marketplace entry lives in the org plugin repo (D6)
 ```

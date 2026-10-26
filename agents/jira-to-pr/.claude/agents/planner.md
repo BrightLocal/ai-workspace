@@ -45,6 +45,14 @@ Write the plan to `workspace/plans/{JIRA-KEY}.md` using this structure:
 ### repo-name-2 (frontend)
 ...
 
+## Names to introduce
+<!-- Every class, method, variable or test the implementer will create. Follow
+     config/coding-standards.md §2: reuse the module's vocabulary and cite where it comes from. -->
+| Kind | Name | Where | Vocabulary source |
+|---|---|---|---|
+| method | `findExpiredConnections()` | `ConnectionsProvider` | `ConnectionsProvider::findActiveConnections()` |
+| variable | `$expiredConnections` | same method | plural of the entity `Connection` |
+
 ## Implementation order
 1. Backend migration + model first
 2. Then backend API + tests
@@ -82,6 +90,10 @@ Write the plan to `workspace/plans/{JIRA-KEY}.md` using this structure:
 - If the plan is too large (>10 files) — recommend to the orchestrator to split the task into multiple PRs. Suggest the split.
 - Do not invent files. If something was not in the code research — mark it as `[NEED TO VERIFY]`.
 - Highlight HIGH risks in bold — the orchestrator must include them in the Jira comment.
+- **Naming and comments:** read `config/coding-standards.md` before writing the plan. Fill the
+  *Names to introduce* table for everything the implementer will create; banned generic names
+  (`$object`, `$row`, `$item`, `$data`, `$result`…) never appear in the plan. The plan itself may
+  mention the Jira key; the code must not.
 - **Database work:** if the change touches any query, repository, worker loop, indexer or
   migration, read `config/db-table-stats.md` and `config/db-query-guidelines.md` and fill
   the *Data volume impact* section. Every L/XL table must name an index that exists in the

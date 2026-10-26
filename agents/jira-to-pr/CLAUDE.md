@@ -33,13 +33,20 @@ the plan's *Data volume impact* section — see those files for the rules.
 **CRITICAL:** Save the plan to `workspace/plans/{JIRA-KEY}.md` before moving to implementation.
 
 ### Phase 4: Implementation
-Use the **implementer** subagent. Pass it the plan from Phase 3 along with the Jira issue type (Bug/Task/Feature/etc.).
+Use the **implementer** subagent in `mode: implement`. Pass it the plan path from Phase 3 and the Jira issue type (Bug/Task/Feature/etc.).
 The subagent, for each affected repository:
 1. Creates a branch following ADR-0019 naming (prefix based on Jira issue type)
-2. Implements the changes according to the plan
-3. Runs tests / linters (if present)
-4. Commits
-5. Creates a PR using the `bl-create-pr` skill (BrightLocal PR template)
+2. Implements the changes according to the plan and `config/coding-standards.md`
+3. Runs tests / formatter (if available) and `scripts/diff-lint.py`
+4. Commits — it does **not** push and does **not** open a PR yet
+
+### Phase 4.6: Code review
+Use the **code-reviewer** subagent. Pass it the plan path and the repos/branches from Phase 4.
+It returns a verdict and findings (renames, comments to delete, data-volume problems). One round only.
+
+### Phase 4.7: Finalize and PR
+Use the **implementer** subagent in `mode: finalize`. Pass it the plan path, the repos/branches and the review findings (possibly empty).
+It applies the findings, re-runs `diff-lint.py`, commits, pushes and creates the PR with the `bl-create-pr` skill (BrightLocal PR template). Backend PR first.
 
 ### Phase 5: Jira Report
 After all PRs are created, add a comment to the Jira task with:
@@ -55,6 +62,7 @@ or the curl REST API pattern from `config/server-mode.md` when `SERVER_MODE=true
 
 - **Branches & commits:** See `shared/engineering/git-conventions.md` (ADR-0019 naming, Conventional Commits rules, push/PR safety).
 - **PR format:** BrightLocal template via `bl-create-pr` skill (Responsibility / Side effects / Additional comments / AI Summary).
+- **Code in the diff:** `config/coding-standards.md` — no ticket keys or change-narrating comments, domain names instead of `$data`/`$row`/`$item`; enforced by `scripts/diff-lint.py` and the code-reviewer.
 
 ## Security
 

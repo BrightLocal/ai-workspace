@@ -105,6 +105,18 @@ claude
 
 The run log will be saved to `workspace/runs/{timestamp}-{JIRA-KEY}/agent.log`.
 
+## Code quality rules
+
+- `config/coding-standards.md` — what the generated diff may and may not contain (no ticket keys
+  or change-narrating comments; names taken from the module's vocabulary, never `$data`/`$row`/`$item`).
+- `scripts/diff-lint.py` — deterministic check of the added lines, run by the implementer before
+  every commit: `python3 scripts/diff-lint.py --repo workspace/Tools --base master`.
+  Self-test: `scripts/tests/test-diff-lint.sh`.
+- `.claude/agents/code-reviewer.md` — read-only review of the branch before the PR is opened
+  (Phase 4.6); the implementer applies its findings in `mode: finalize`.
+- `config/db-table-stats.md` + `config/db-query-guidelines.md` — production table sizes by tier
+  and the query rules the planner and implementer follow for them.
+
 ## Security
 
 ⚠️ **Read before running in autonomous mode:**
