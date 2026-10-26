@@ -329,7 +329,7 @@ channel; scopes `channels:history`, `groups:history`).
 |---|---|---|---|
 | 0 | Branch, this plan, SQL inputs; fix the audit defects of §2 | — | done / 0.5 d |
 | 1 | Requirement 3: coding-standards, diff-lint, planner names section, code-reviewer | — | 1 d |
-| 2 | Requirement 4: import script, stats + guidelines files, planner/implementer/reviewer wiring | TSV output from the user | 1 d (+ waiting) |
+| 2 | Requirement 4: import script, stats + guidelines files, planner/implementer/reviewer wiring | TSV output from the user | main host done 2026-10-26; other hosts + reviewer wiring pending |
 | 3 | Requirement 1: quality-gate.sh, setup-quality-env.sh, push hook, Phase 4.5 loop, settings | Docker env on the dev machine (SSH to db-schemas, private Composer) | 1.5–2 d |
 | 4 | Requirement 2: external_links, context-enricher, integrations.md, env vars, MCP setup | Sentry token (1Password), Slack app/bot or connector, VPN | 1.5–2 d |
 | 5 | Plugin packaging: plugin.json, skill-based orchestrator, copied conventions, hooks.json, .mcp.json, marketplace.json, `claude plugin validate`, README, pilot with 2 engineers | phases 1–4 | 2 d |

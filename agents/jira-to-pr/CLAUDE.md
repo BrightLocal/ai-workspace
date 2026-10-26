@@ -26,6 +26,10 @@ If not — clone them using `scripts/clone-repos.sh`.
 Use the **planner** subagent. Pass it the Jira summary + code research results.
 The subagent will return an Implementation Plan with: list of changes by file and repository, risks, edge cases, and step sequence.
 
+When the task touches the database (queries, repositories, workers, indexers, migrations),
+the planner reads `config/db-table-stats.md` and `config/db-query-guidelines.md` and fills
+the plan's *Data volume impact* section — see those files for the rules.
+
 **CRITICAL:** Save the plan to `workspace/plans/{JIRA-KEY}.md` before moving to implementation.
 
 ### Phase 4: Implementation

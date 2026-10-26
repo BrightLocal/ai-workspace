@@ -30,6 +30,20 @@ Follow the plan step-by-step:
 4. Run linter/formatter per repo conventions: `npm run lint`, `pre-commit run --all-files`, etc.
 5. Run relevant tests: NOT the full suite, only those that touch your changes
 
+## Database changes
+
+When the plan has a *Data volume impact* section, or you find yourself writing a query,
+repository method, worker loop, indexer or migration the plan did not foresee:
+
+1. Read `../../config/db-query-guidelines.md` and look the table up in
+   `../../config/db-table-stats.md` (paths relative to `workspace/{repo-name}/`).
+2. Follow the rules for the table's tier. For L/XL tables the filter must start with the
+   leading column of an index listed there; wide-row tables never use `SELECT *`.
+3. A query the plan did not foresee on an L/XL table is a plan change — add the row to
+   the plan file's *Data volume impact* section before writing the code.
+4. Carry the facts into the PR's *Additional comments*: table, tier, index used, expected
+   rows per call. Never run anything against a production database.
+
 ## Commits
 
 Follow the commit conventions from `shared/engineering/git-conventions.md` (types, body rules, no emoji, no AI footers).
