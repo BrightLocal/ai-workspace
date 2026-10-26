@@ -1,7 +1,7 @@
 # Jira Label Poller — local AI developer MVP (design)
 
 Date: 2026-10-26
-Status: draft — builder-check answers incorporated 2026-10-26, awaiting final read
+Status: approved 2026-10-26
 
 ## Intent
 
@@ -238,6 +238,41 @@ global `url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf git@githu
 
 Jira statuses: the agent never transitions ticket status — labels and comments only.
 Retry of a failed ticket: Vadym swaps `AI-failed` back to `AI`.
+
+### Target environment description
+
+Everything about *where and how* the agent builds, tests and verifies lives in one file per
+environment, selected by `TARGET_ENV` (default `local`):
+`agents/jira-to-pr/config/environments/{TARGET_ENV}.md`. The implementer and verifier read it
+at the start of every run instead of hard-coding commands. `local.md` describes: repo paths,
+container names (`listing_syncer`, `tools-app-1`), test/PHPStan/ECS commands, how to reload
+code in each process (cache clear, OpenSwoole reload, worker restart), migration apply/rollback
+commands, DB access (read-only SQL via `docker exec` into the DB container), base URLs of the
+local stacks, and what is forbidden (starting/stopping stacks, `composer install`).
+
+## Production evolution (not in MVP — recorded so the MVP doesn't paint us into a corner)
+
+Target: the same container runs on a dedicated **AI-dev** server, deploys the ticket branch
+there (via a deploy skill), and verifies against that environment with full DB access.
+
+What carries over unchanged: poller, labels, comment marker, `result.json`, run lock,
+sessions/resume, planner "How to verify", verifier phase, PR evidence, Draft rule, no-merge rule.
+
+What changes:
+- Code: server-owned clones (fresh branch per ticket) instead of mounted checkouts; the
+  "checkout is free" and `composer.lock` pre-flight checks go away — deploy installs deps.
+- Verification target: `TARGET_ENV=ai-dev` → `environments/ai-dev.md` (deploy branch X,
+  base URLs, DB credentials, reset procedure). A deploy step is added before verification.
+- Identity: bot Jira/GitHub account; Claude via team/API key, not a personal login.
+- Laptop-sleep limitation disappears.
+
+Guardrails required before granting deploy + DB rights:
+1. Deploy credentials/skill can only target AI-dev — enforced technically, not by prompt.
+2. AI-dev DB holds seeded or anonymised data only, never production data.
+3. Environment is resettable (DB snapshot restore, queue purge) before each ticket.
+4. One ticket at a time per environment; parallelism = one environment per ticket (later).
+5. DevOps owns the host, bot account and DB credentials (today dev2/dev4 have no SSH/DB access
+   for us, so this needs a DEVOPS ticket).
 
 ## Build order (each step testable on its own)
 
