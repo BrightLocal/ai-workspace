@@ -91,6 +91,6 @@ a local `EXPLAIN`, say that it ran against an empty database.
 
 ## When the stats are stale
 
-`db-table-stats.md` carries its export date. Older than six months, or a table the
-ticket names is missing: ask for a fresh export (`scripts/db-table-stats.sql`) and,
-until then, treat the table one tier higher than listed.
+`db-table-stats.md` carries its export date. Older than six months: ask for a fresh
+export (`scripts/db-table-stats.sql`) and, until then, treat every table one tier higher
+than listed. A table from a schema the file does not cover is **L** by default.

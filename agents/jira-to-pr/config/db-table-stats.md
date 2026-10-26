@@ -8,8 +8,8 @@ importer after a fresh export (`scripts/db-table-stats.sql`, `scripts/db-table-i
 - mysql-prod-01 / brightlocal — `tables-mysql-prod-01-brightlocal-2026-10-26.csv` (512 tables, exported 2026-10-26)
 - indexes: `indexes-mysql-prod-01-brightlocal-2026-10-26.csv` (329 index rows, exported 2026-10-26)
 
-**Not covered yet** (no export received): `batches`, `jobs`, `proxy`, `profiles`, `logging`, `local_active_location`, `listing_syncer`, `shard_01`, `shard_02`, `shard_03`, `shard_04`, `shard_05`, `shard_06`, `shard_07`, `shard_08`, `shard_09`, `shard_10`.
-Treat tables from these schemas as **L** until measured, and say so in the plan.
+**Not covered** (no export available): `batches`, `jobs`, `proxy`, `profiles`, `logging`, `local_active_location`, `listing_syncer`, `shard_01`, `shard_02`, `shard_03`, `shard_04`, `shard_05`, `shard_06`, `shard_07`, `shard_08`, `shard_09`, `shard_10`.
+Treat tables from these schemas as **L**, and say so in the plan's *Data volume impact* section.
 
 ## How to read this file
 

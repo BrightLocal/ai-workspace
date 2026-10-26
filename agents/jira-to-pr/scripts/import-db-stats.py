@@ -218,8 +218,8 @@ def render(tables: dict, table_sources: list[str], index_sources: list[str]) -> 
         out.append(f"- indexes: {src}")
     out.append("")
     if not_covered:
-        out.append("**Not covered yet** (no export received): " + ", ".join(f"`{s}`" for s in not_covered) + ".")
-        out.append("Treat tables from these schemas as **L** until measured, and say so in the plan.")
+        out.append("**Not covered** (no export available): " + ", ".join(f"`{s}`" for s in not_covered) + ".")
+        out.append("Treat tables from these schemas as **L**, and say so in the plan's *Data volume impact* section.")
         out.append("")
     out.append("## How to read this file")
     out.append("")
