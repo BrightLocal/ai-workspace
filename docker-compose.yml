@@ -1,14 +1,27 @@
 services:
   ai-workspace:
-    build: .
+    build:
+      context: .
+      args:
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    group_add:
+      - "${HOST_DOCKER_GID:-999}"
     ports:
-      - "3000:3000"
-    env_file: .env
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - path: .env
+        required: false
     environment:
       - SERVER_MODE=true
+      - WORKSPACE_ROOT=/home/lenovo/brightLocal/ai-workspace
+      - HOME=/home/lenovo
     volumes:
-      - workspace-data:/app/agents/jira-to-pr/workspace
+      - /home/lenovo/brightLocal/ai-workspace:/home/lenovo/brightLocal/ai-workspace:rw
+      - /home/lenovo/brightLocal/Tools:/home/lenovo/brightLocal/Tools:rw
+      - /home/lenovo/brightLocal/ListingSyncer:/home/lenovo/brightLocal/ListingSyncer:rw
+      - /home/lenovo/.claude:/home/lenovo/.claude:rw
+      - /home/lenovo/.claude.json:/home/lenovo/.claude.json:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
     restart: unless-stopped
-
-volumes:
-  workspace-data:

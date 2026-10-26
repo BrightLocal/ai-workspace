@@ -1,5 +1,8 @@
 # Server Setup Guide (for DevOps)
 
+> **Note:** This guide describes the legacy/future server (n8n) deployment. The current
+> local MVP (label poller on the laptop) is described in `local-poller.md`.
+
 This guide covers deploying the ai-workspace on a dedicated VM so that n8n can trigger
 the jira-to-pr agent automatically whenever a Jira task is assigned to the bot user.
 
@@ -72,13 +75,10 @@ docker logs ai-workspace -f
 Create a `.env` file at the repository root (never commit this file).
 
 ```dotenv
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Jira bot user credentials
-JIRA_BOT_EMAIL=ai-agent@brightlocal.com
-JIRA_BOT_API_TOKEN=<Atlassian API token for bot user>
-JIRA_BOT_ACCOUNT_ID=<Jira accountId of bot user — needed for JQL in n8n>
+# Jira credentials
+JIRA_EMAIL=ai-agent@brightlocal.com
+JIRA_API_TOKEN=<Atlassian API token for that user>
+BOT_ACCOUNT_ID=<Jira accountId of bot user — needed for JQL in n8n>
 
 # GitHub (PAT with repo read + write + pull_requests scopes)
 GH_TOKEN=ghp_...
