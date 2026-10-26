@@ -20,10 +20,23 @@ The run prompt gives you:
 workflow from where you stopped. Run id: <NEW_RUN_ID>. Write result.json to <RUN_DIR>.`
 It is the same Claude session, so you already know the plan and the target environment file
 from earlier in the session (if not, use `config/environments/local.md`). Use the NEW run id
-and run dir from the resume prompt for everything from now on. Before continuing, confirm each
-repo you already branched is still on its ticket branch (`git -C <repo> branch --show-current`);
-if not, end with `failed` and say why in a marked comment — never switch branches over
-uncommitted work.
+and run dir from the resume prompt for everything from now on.
+
+`<TEXT>` is every human comment posted after your question, oldest first, separated by a blank
+line. If it looks incomplete (cut off, refers to a comment you have not seen, answers only some
+of your questions), re-fetch the ticket's comments and read every comment after your question
+comment (`question_comment_id` from your last `result.json` / `workspace/state.json`) before
+continuing — unmarked comments only; your own marked comments are never answers.
+
+Before continuing, put each repo you already branched back on its ticket branch (branch names
+from earlier in this session, or `branches` in `workspace/state.json`) — Vadym may have
+switched it back to `master` while you waited:
+1. `git -C <repo> branch --show-current` — already on the ticket branch → continue.
+2. Otherwise `git -C <repo> status --porcelain` must be empty. If it is not → **failure exit**
+   (say which repo is dirty and on which branch) — never switch branches over uncommitted work.
+3. Clean tree and the ticket branch exists locally (`git -C <repo> rev-parse --verify --quiet
+   refs/heads/<branch>`) → `git -C <repo> checkout <branch>` and continue.
+4. The ticket branch is missing (deleted locally) → **failure exit**; do not recreate it.
 
 ## Ownership rules (binding)
 
@@ -47,8 +60,9 @@ Check whether the `SERVER_MODE` environment variable is set to `true`.
 - **If `SERVER_MODE=true`:** Load `config/server-mode.md`. All Jira interactions in the phases
   below must use the curl-based REST API patterns described there (credentials `JIRA_EMAIL` /
   `JIRA_API_TOKEN`). Do NOT use any `mcp__atlassian__*` tools.
-- **If `SERVER_MODE` is not set (local mode):** Use Atlassian MCP tools as normal
-  (`mcp__atlassian__*`). Comment format, the clarification exit and `result.json` apply in both
+- **If `SERVER_MODE` is not set (local mode, interactive):** Use Atlassian MCP tools
+  (`mcp__atlassian__*`); each call needs the user's approval at the prompt (see "MCP servers").
+  Comment format, the clarification exit and `result.json` apply in both
   modes; labels are never changed in either.
 
 Then read the target environment file named in the run prompt.
@@ -148,8 +162,9 @@ exit, or a failure exit. Write it with the Write tool (valid JSON, no comments):
 - `status: "draft"` if PRs were opened and any PR is Draft.
 - `status: "needs_input"` for the clarification exit; `question_comment_id` is the id of the
   marked question comment (required for this status, omit otherwise).
-- `status: "failed"` when the run cannot continue (e.g. a repo is not on its ticket branch on
-  resume, push rejected, implementation impossible) — post a marked comment saying why first.
+- `status: "failed"` when the run cannot continue (e.g. on resume a repo is dirty or its ticket
+  branch is missing, push rejected, commit rejected for a missing git identity, implementation
+  impossible) — post a marked comment saying why first.
 - `branches`: every ticket branch created so far (include it for `needs_input` and `failed`
   too, so the poller can recognise them as agent branches). `prs`: empty array if none.
 - Never write `session_id` — `run-agent.sh` adds it.
@@ -170,8 +185,10 @@ When Vadym replies, the poller resumes this session (see "Resumed runs").
 
 ## Failure exit
 
-For runs that cannot continue. Triggers: the implementer stops on a dirty working tree; a repo
-is not on its ticket branch on resume; a push is rejected; the implementation is impossible.
+For runs that cannot continue. Triggers: the implementer stops on a dirty working tree; on
+resume a repo is dirty or its ticket branch is missing (see "Resumed runs"); a commit fails
+because no git author identity is configured; a push is rejected; the implementation is
+impossible.
 1. Post one marked comment giving the reason.
 2. Write `result.json` with status `failed`, a one-line summary and any branches created.
 3. Stop.
@@ -199,14 +216,21 @@ poller can tell your comments from human replies (you post under Vadym's account
 - Do NOT force push, do NOT merge PRs
 - Do NOT delete existing branches
 - Do NOT touch uncommitted work in the checkouts (no stash, reset, clean, checkout over it)
+- Do NOT set a git identity (`git config user.*`, `-c user.*`, `--author`) and never edit a
+  repo's `.git/config` — the container's global git config provides the author. A commit that
+  fails on identity → **failure exit**
 - Do NOT start, stop or restart containers or install dependencies — see the target
   environment file's "Forbidden" section
 - Changes touching security/auth/payments → PR is **Draft**, noted in the Jira comment
 
-## Available MCP servers
+## MCP servers
 
-- `atlassian` — reading Jira tasks, adding comments (local mode only)
-- `github` — (optional) for PR operations, otherwise use the `gh` CLI
+- **Server mode (headless poller runs): none.** `run-agent.sh` starts Claude with
+  `--strict-mcp-config` and `ENABLE_CLAUDEAI_MCP_SERVERS=false`, and `.claude/settings.json`
+  allows no `mcp__*` tool. Use curl (Jira REST) and the `gh` CLI.
+- **Local mode (interactive only):** `atlassian` for reading Jira tasks and adding comments.
+  MCP tools are not pre-approved, so each call asks the person at the terminal for approval.
+  Use the `gh` CLI for PR operations.
 
 ## Repositories
 
@@ -221,6 +245,7 @@ server setup with its own clones; this workflow does not use them.
 ## Working directory
 
 - Plans: `workspace/plans/{JIRA-KEY}.md`
-- Per-run files: `workspace/runs/<RUN_ID>/` — `result.json`, `verification.md` (plus
+- Per-run files: `workspace/runs/<RUN_ID>/` — `result.json`, `verification.md`,
+  `verification.log` (the verifier's running log of applied migrations / created fixtures) (plus
   `claude.json` / `agent.log` written by `run-agent.sh`)
 - Poller state (read-only for you): `workspace/state.json`

@@ -15,22 +15,20 @@ All requests use HTTP Basic Auth with Vadym's credentials from environment varia
 
 Base URL: `https://brightlocal.atlassian.net`
 
+Run every command below as ONE line, exactly in the shape shown (no backslash line
+continuations, no separate variable assignments) — the permission allow-list matches
+`curl * https://brightlocal.atlassian.net/*` and `jq *` per pipeline segment.
+
 ## Read a Jira issue
 
 ```bash
-curl -s \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -H "Accept: application/json" \
-  "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}"
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" -H "Accept: application/json" "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}"
 ```
 
 ## Fetch issue comments
 
 ```bash
-curl -s \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -H "Accept: application/json" \
-  "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}/comment?orderBy=created&maxResults=100"
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" -H "Accept: application/json" "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}/comment?orderBy=created&maxResults=100"
 ```
 
 Comments whose text starts with `🤖 ai-workspace:` are the agent's/poller's own; every other
@@ -39,36 +37,20 @@ comment is a human (Vadym) comment.
 ## Search issues (JQL)
 
 ```bash
-jq -n --arg jql 'parent = LM-1234' \
-  '{jql: $jql, fields: ["summary", "status", "labels", "issuetype"], maxResults: 50}' \
-| curl -s -X POST \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  --data @- \
-  "https://brightlocal.atlassian.net/rest/api/3/search/jql"
+jq -n --arg jql 'parent = LM-1234' '{jql: $jql, fields: ["summary", "status", "labels", "issuetype"], maxResults: 50}' | curl -s -X POST -u "$JIRA_EMAIL:$JIRA_API_TOKEN" -H "Content-Type: application/json" -H "Accept: application/json" --data @- "https://brightlocal.atlassian.net/rest/api/3/search/jql"
 ```
 
 ## Post a marked comment
 
 Every comment MUST start with `🤖 ai-workspace:` and end with a final line `[run:<RUN_ID>]`
-(the run id from the current run prompt). Each text line becomes one ADF paragraph — the same
-shape the poller uses. The response's `id` is the comment id (use it as
-`question_comment_id` in `result.json` when the comment asks questions).
+(the run id from the current run prompt). Pass the text inline to `jq --arg t "…"` and write
+line breaks as the two characters `\n` (inside double quotes bash keeps them literal); the jq
+program splits on them, so each line becomes one ADF paragraph — the same shape the poller
+uses. Escape `"`, `$` and backticks in the text with a backslash. The response's `id` is the
+comment id (use it as `question_comment_id` in `result.json` when the comment asks questions).
 
 ```bash
-TEXT=$'🤖 ai-workspace: I need two answers before I can implement LM-1234:\n1. ...\n2. ...\n[run:20261026-101200-LM-1234]'
-
-jq -n --arg t "$TEXT" '{body: {type: "doc", version: 1, content: [
-    $t | split("\n")[] | {type: "paragraph", content: (if . == "" then [] else [{type: "text", text: .}] end)}
-  ]}}' \
-| curl -s -X POST \
-  -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  --data @- \
-  "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}/comment" \
-| jq -r '.id'
+jq -n --arg t "🤖 ai-workspace: I need two answers before I can implement LM-1234:\n1. ...\n2. ...\n[run:20261026-101200-LM-1234]" '{body: {type: "doc", version: 1, content: [$t | split("\\n")[] | {type: "paragraph", content: (if . == "" then [] else [{type: "text", text: .}] end)}]}}' | curl -s -X POST -u "$JIRA_EMAIL:$JIRA_API_TOKEN" -H "Content-Type: application/json" -H "Accept: application/json" --data @- "https://brightlocal.atlassian.net/rest/api/3/issue/{JIRA_KEY}/comment" | jq -r '.id'
 ```
 
 If the command prints `null` or nothing, the comment was not created — inspect the raw

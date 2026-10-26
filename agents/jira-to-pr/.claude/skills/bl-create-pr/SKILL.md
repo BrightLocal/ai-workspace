@@ -38,7 +38,12 @@ git -C <REPO> diff origin/<BASE>...HEAD --stat
 - Branch name MUST comply with ADR-0019 (see below) — abort with a clear error if it does not
 - If a PR for this branch already exists (`gh pr list --repo <owner/repo> --head <branch>`), do
   not create a second one — update its body (`gh pr edit`) with the new Verification section and
-  report its URL
+  report its URL. Then reconcile its draft state with this run's Draft decision (Step 3; read the
+  current state with `gh pr view <url> --json isDraft`):
+  - Decision is **Draft** and the PR is ready → `gh pr ready --undo <url>` (back to draft).
+  - Decision is **ready** and the PR is a draft → leave it draft unless every verification check
+    passed and nothing is unverifiable; only then run `gh pr ready <url>`.
+  - Otherwise leave it as it is. Report the PR's final draft state.
 
 **Branch naming validation (ADR-0019):**
 

@@ -66,6 +66,12 @@ Follow the plan step-by-step:
 Follow `../../shared/engineering/git-conventions.md` (Conventional Commits, body explains why,
 no emoji, no AI footers). One logical change = one commit.
 
+Git identity comes from the container's global git config (set at start-up from `.env`).
+Never set it yourself: no `git config user.name/user.email` (global or local), no `-c user.*`,
+no `--author`, and never edit a repo's `.git/config`. If a commit fails because the author
+identity is missing ("Please tell me who you are" / "unable to auto-detect email address"),
+stop and return `status: failed` with that error — the orchestrator takes the failure exit.
+
 Gotcha — **`git mv` then edit:** `git mv` stages the rename with the OLD content. After editing
 a moved file (typical for mirrored migrations copied between LS and Tools), `git add` it again
 before committing, then check `git -C <repo> show HEAD:<path>` has the new content. For a
@@ -97,6 +103,7 @@ FORBIDDEN:
 - Deleting branches other than ones you created locally in this run
 - Changes to CI configs (`.github/workflows`, ...) without an explicit request in the plan
 - Rotating/creating secrets
+- Setting a git identity or editing a repo's `.git/config` (see "Commits")
 - Changes to `.lock` files, except when the plan explicitly requires it (adding a dependency)
 - Dependency installation / project setup commands (`composer install|update`, `npm install`,
   `npm ci`, `yarn install`, `pnpm install`, ...) — on the host or inside any container

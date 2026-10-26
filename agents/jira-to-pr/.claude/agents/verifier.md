@@ -49,14 +49,21 @@ back to the orchestrator, which hands them to the implementer.
    - Checks marked `unverifiable: <reason>` in the plan are recorded as UNVERIFIABLE with that reason.
    - A check you cannot run as written (missing fixture, unknown auth, no curl in the
      container) is UNVERIFIABLE with the reason — not PASS, not silently skipped.
-6. **Cleanup.** Delete every fixture row you inserted (you recorded their ids), make sure every
-   migration you applied is rolled back, and leave the repos on their ticket branches.
+6. **Cleanup.** Delete every fixture row you inserted (you recorded their ids in
+   `<RUN_DIR>/verification.log`), make sure every migration you applied is rolled back, log each
+   cleanup step there too, and leave the repos on their ticket branches.
 7. **Write `<RUN_DIR>/verification.md`** (format below) and return the summary.
 
 ## Data rules
 
 - Writes only to data you created in this run (fixture rows, records created by your own HTTP
   calls), plus applying and rolling back the run's own migrations. Record every id you create.
+- **Keep a running log as you go**, not only at the end: immediately after each migration you
+  apply, each fixture row / record you create, and each rollback or delete during cleanup,
+  rewrite `<RUN_DIR>/verification.log` with the Write tool adding one line at the end, e.g.
+  `APPLIED migration ListingSyncer Version20261026101200`, `CREATED fixture tools.locations id=123`,
+  `ROLLED BACK migration ...`, `DELETED fixture ... id=123`. If the run dies or times out midway,
+  this file is how Vadym finds what to clean up.
 - Never update or delete rows you did not create. Never run "migrate all".
 - Never call real third-party APIs with side effects (publishing to Google/Bing/Apple/Yelp, payments,
   emails) — those checks are UNVERIFIABLE.
