@@ -270,3 +270,19 @@ test('tick does not release a lock it did not acquire', async () => {
   assert.equal(f.getLock().owner, 'http:LM-3');
   assert.ok(!f.calls.some((c) => c[0] === 'lock.release'));
 });
+
+test('handleRunResult saves state before the outcome label swap', async () => {
+  const f = makeDeps({ searches: { MAIN_JQL: [{ key: 'LM-1' }] } });
+  const orig = f.deps.jira.setAiLabel;
+  f.deps.jira.setAiLabel = async (key, from, to) => {
+    if (from === 'AI-in-progress') throw new Error('jira 503');
+    return orig(key, from, to);
+  };
+  const r = await tick(f.deps);
+  assert.equal(r.action, 'error');
+  const t = f.getState().tickets['LM-1'];
+  assert.equal(t.sessionId, 'sess-1');
+  assert.deepEqual(t.branches, { Tools: 'task/LM-1' });
+  assert.equal(t.lastStatus, 'done');
+  assert.equal(f.getLock(), null);
+});

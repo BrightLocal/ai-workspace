@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { createApp } = require('../index');
+const { createApp, recoverRunLock } = require('../index');
 const { makeDeps } = require('./helpers/fakes');
 
 async function withServer(app, fn) {
@@ -100,6 +100,7 @@ test('http trigger checks secret and key format', async () => {
     assert.equal((await post(base, { jira_key: 'LM-1' })).status, 401);
     assert.equal((await post(base, { jira_key: 'LM-1' }, { 'X-Webhook-Secret': 'wrong' })).status, 401);
     assert.equal((await post(base, { jira_key: 'nope' }, { 'X-Webhook-Secret': 's3cret' })).status, 400);
+    assert.equal((await post(base, { jira_key: 'CE-1' }, { 'X-Webhook-Secret': 's3cret' })).status, 400, 'only LM keys');
   });
   assert.equal(f.getLock(), null);
 });
@@ -112,4 +113,63 @@ test('health reports paused and lock', async () => {
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { status: 'ok', paused: true, lock: { owner: 'poller:LM-4', pid: 7, at: 'x' } });
   });
+});
+
+for (const [name, opts, reason] of [
+  ['dirty repo', { repos: { ok: false, outcome: 'failed', reason: 'uncommitted changes in Tools' } }, 'uncommitted changes in Tools'],
+  ['containers down', { containers: { ok: false, outcome: 'needs_input', reason: 'containers not running: tools-app-1' } }, 'containers not running: tools-app-1'],
+  ['pre-flight throws', { reposThrow: true }, 'pre-flight error: not a git repo'],
+]) {
+  test(`http trigger refuses on ${name} without touching Jira`, async () => {
+    const f = makeDeps(opts);
+    await withServer(createApp(f.deps), async (base) => {
+      const res = await post(base, { jira_key: 'LM-1' });
+      assert.equal(res.status, 409);
+      assert.deepEqual(await res.json(), { error: reason });
+    });
+    assert.equal(f.getLock(), null, 'lock released');
+    assert.equal(f.runCalls.length, 0);
+    assert.equal(f.labelCalls().length, 0);
+    assert.equal(f.commentCalls().length, 0);
+  });
+}
+
+test('http trigger refuses when paused', async () => {
+  const f = makeDeps({ paused: true });
+  await withServer(createApp(f.deps), async (base) => {
+    const res = await post(base, { jira_key: 'LM-1' });
+    assert.equal(res.status, 409);
+    assert.deepEqual(await res.json(), { error: 'paused' });
+  });
+  assert.equal(f.getLock(), null);
+  assert.equal(f.runCalls.length, 0);
+});
+
+test('recoverRunLock releases a pre-existing lock and logs it', () => {
+  const f = makeDeps();
+  f.setLock({ owner: 'poller:LM-3', pid: 1, at: 'x' });
+  assert.equal(recoverRunLock(f.deps), true);
+  assert.equal(f.getLock(), null);
+  const warn = f.calls.find((c) => c[0] === 'log' && c[1] === 'warn');
+  assert.ok(warn, 'warn logged');
+  assert.deepEqual(warn[3], { lock: { owner: 'poller:LM-3', pid: 1, at: 'x' } });
+});
+
+test('recoverRunLock is a no-op without a lock', () => {
+  const f = makeDeps();
+  assert.equal(recoverRunLock(f.deps), false);
+  assert.ok(!f.calls.some((c) => c[0] === 'lock.release'));
+});
+
+test('recoverRunLock releases an empty/unparseable lock file', () => {
+  const f = makeDeps();
+  let exists = true;
+  f.deps.lock.exists = () => exists;
+  const origRelease = f.deps.lock.release;
+  f.deps.lock.release = (p) => { exists = false; origRelease(p); };
+  assert.equal(f.getLock(), null, 'read() sees nothing parseable');
+  assert.equal(recoverRunLock(f.deps), true);
+  assert.equal(exists, false);
+  const warn = f.calls.find((c) => c[0] === 'log' && c[1] === 'warn');
+  assert.deepEqual(warn[3], { lock: null });
 });

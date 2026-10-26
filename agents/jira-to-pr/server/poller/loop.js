@@ -13,9 +13,10 @@ function startPollerLoop(deps, { tickImpl = tick } = {}) {
       const report = await tickImpl(deps);
       deps.log('info', `tick: ${report && report.action}`, report);
     } catch (e) {
-      deps.log('error', `tick threw: ${e.message}`, { stack: e.stack });
+      try { deps.log('error', `tick threw: ${e.message}`, { stack: e.stack }); } catch { /* logging must not kill the loop */ }
+    } finally {
+      if (!stopped) timer = setTimeout(run, deps.config.pollIntervalMs);
     }
-    if (!stopped) timer = setTimeout(run, deps.config.pollIntervalMs);
   }
 
   run();

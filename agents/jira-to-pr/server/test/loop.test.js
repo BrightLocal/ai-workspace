@@ -31,3 +31,12 @@ test('loop ticks immediately, repeats, never overlaps, survives errors, stops', 
   assert.equal(maxActive, 1);
   assert.ok(logs.some(([l]) => l === 'error'));
 });
+
+test('loop keeps ticking when log throws', async () => {
+  let count = 0;
+  const deps = { config: { pollIntervalMs: 1 }, log: () => { throw new Error('log broke'); } };
+  const loop = startPollerLoop(deps, { tickImpl: async () => { count++; return { action: 'idle' }; } });
+  await wait(40);
+  loop.stop();
+  assert.ok(count >= 3, `ticked ${count} times`);
+});

@@ -84,7 +84,8 @@ function saveTicket(deps, key, patch) {
 // label from the status map, state save, failure comment.
 async function handleRunResult(deps, key, fromLabel, result, runId) {
   const label = labelForStatus(result.status);
-  await deps.jira.setAiLabel(key, fromLabel, label);
+  // State first: a Jira error on the label swap must not lose the session/branches,
+  // or later pre-flights would reject the agent branch the repo is left on.
   const prev = getTicket(deps.state.load(), key) || {};
   saveTicket(deps, key, {
     sessionId: result.sessionId || prev.sessionId,
@@ -94,6 +95,7 @@ async function handleRunResult(deps, key, fromLabel, result, runId) {
     questionCommentId: result.questionCommentId,
     lastStatus: result.status,
   });
+  await deps.jira.setAiLabel(key, fromLabel, label);
   if (label === 'AI-failed') {
     await deps.jira.comment(key, `run failed — see workspace/runs/${runId}`, runId);
   }
@@ -225,6 +227,7 @@ async function tick(deps) {
 module.exports = {
   tick,
   handleRunResult,
+  runPreflight,
   findHumanReply,
   labelForStatus,
   pollerRunId,
