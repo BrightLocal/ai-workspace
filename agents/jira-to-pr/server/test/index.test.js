@@ -79,7 +79,7 @@ test('http trigger on ticket without AI label only adds the outcome label', asyn
     for (let i = 0; i < 50 && f.getLock(); i++) await new Promise((r) => setTimeout(r, 5));
   });
   assert.deepEqual(f.labelCalls(), [['setAiLabel', 'LM-1', null, 'AI-failed']]);
-  assert.match(f.commentCalls().at(-1)[2], /^run failed — see workspace\/runs\/\d{8}-\d{6}-LM-1$/);
+  assert.match(f.commentCalls().at(-1)[2], /^run failed — see workspace\/runs\/\d{8}-\d{6}-LM-1\. Check `git status` in the repos and any applied migrations before retrying\.$/);
 });
 
 test('http trigger releases lock when the background run throws', async () => {

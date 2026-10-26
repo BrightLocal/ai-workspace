@@ -41,10 +41,11 @@ function ts(created) {
   return Number.isNaN(t) ? null : t;
 }
 
-// Newest unmarked comment created after the question comment (by id), or — if that id is
-// unknown or missing — after the last marked comment. Comments are oldest-first. No marked
-// comment at all → no reply (we never treat pre-agent discussion as an answer).
-function findHumanReply(comments, questionCommentId) {
+// All unmarked comments created after the question comment (by id), or — if that id is
+// unknown or missing — after the last marked comment, oldest first (ruling R12: Vadym may
+// answer in several comments). Comments are oldest-first. No marked comment at all → no
+// replies (we never treat pre-agent discussion as an answer).
+function findHumanReplies(comments, questionCommentId) {
   let threshold = null;
   if (questionCommentId != null) {
     const q = comments.find((c) => String(c.id) === String(questionCommentId));
@@ -53,13 +54,24 @@ function findHumanReply(comments, questionCommentId) {
   if (threshold === null) {
     for (const c of comments) if (isAgentComment(c.body)) threshold = ts(c.created);
   }
-  if (threshold === null) return null;
-  let reply = null;
-  for (const c of comments) {
-    const t = ts(c.created);
-    if (t !== null && t > threshold && !isAgentComment(c.body)) reply = c;
-  }
-  return reply;
+  if (threshold === null) return [];
+  return comments
+    .filter((c) => {
+      const t = ts(c.created);
+      return t !== null && t > threshold && !isAgentComment(c.body);
+    })
+    .sort((a, b) => ts(a.created) - ts(b.created));
+}
+
+// Newest human reply (or null) — kept for callers that only need "is there a reply?".
+function findHumanReply(comments, questionCommentId) {
+  const replies = findHumanReplies(comments, questionCommentId);
+  return replies.length ? replies[replies.length - 1] : null;
+}
+
+// Resume message: every reply after the question, oldest first, blank line between.
+function replyMessage(replies) {
+  return replies.map((c) => adfToText(c.body)).join('\n\n');
 }
 
 // Pre-flight never throws: a throwing check (non-git path, docker missing) is a failed repo check.
@@ -80,10 +92,23 @@ function saveTicket(deps, key, patch) {
   return next;
 }
 
+function failureComment(deps, result, runId) {
+  const ms = deps.config && deps.config.runTimeoutMs;
+  const head = result.timedOut
+    ? `run timed out${ms ? ` after ${Math.round(ms / 60000)} min` : ''}`
+    : 'run failed';
+  return `${head} — see workspace/runs/${runId}. Check \`git status\` in the repos and any applied migrations before retrying.`;
+}
+
 // Shared post-run handling for the poller and the HTTP trigger (ruling R4):
 // label from the status map, state save, failure comment.
 async function handleRunResult(deps, key, fromLabel, result, runId) {
-  const label = labelForStatus(result.status);
+  let label = labelForStatus(result.status);
+  // A run that claims done but opened a Draft PR is a draft (spec: Draft PR → AI-draft).
+  if (result.status === 'done' && Array.isArray(result.prs) && result.prs.some((p) => p && p.draft === true)) {
+    deps.log('warn', `${key} reported done but has a draft PR — labelling AI-draft`, { runId });
+    label = 'AI-draft';
+  }
   // State first: a Jira error on the label swap must not lose the session/branches,
   // or later pre-flights would reject the agent branch the repo is left on.
   const prev = getTicket(deps.state.load(), key) || {};
@@ -97,7 +122,7 @@ async function handleRunResult(deps, key, fromLabel, result, runId) {
   });
   await deps.jira.setAiLabel(key, fromLabel, label);
   if (label === 'AI-failed') {
-    await deps.jira.comment(key, `run failed — see workspace/runs/${runId}`, runId);
+    await deps.jira.comment(key, failureComment(deps, result, runId), runId);
   }
   deps.log('info', `${key} finished: ${result.status} → ${label}`, { runId, summary: result.summary });
   return label;
@@ -148,8 +173,8 @@ async function resumeStep(deps, ctx, state) {
   const issues = await deps.jira.search(NEEDS_INPUT_JQL);
   for (const { key } of issues) {
     const ticket = getTicket(state, key) || {};
-    const reply = findHumanReply(await deps.jira.getComments(key), ticket.questionCommentId);
-    if (!reply) continue;
+    const replies = findHumanReplies(await deps.jira.getComments(key), ticket.questionCommentId);
+    if (replies.length === 0) continue;
 
     const check = runPreflight(deps, state);
     if (!check.ok) return handlePreflightFailure(deps, key, 'AI-needs-input', check);
@@ -158,7 +183,7 @@ async function resumeStep(deps, ctx, state) {
     try {
       await deps.jira.setAiLabel(key, 'AI-needs-input', 'AI-in-progress');
       const runId = newRunId(key, nowOf(deps));
-      const resume = ticket.sessionId ? { sessionId: ticket.sessionId, message: adfToText(reply.body) } : undefined;
+      const resume = ticket.sessionId ? { sessionId: ticket.sessionId, message: replyMessage(replies) } : undefined;
       deps.log('info', `${key} ${resume ? 'resuming session' : 'starting fresh after reply'}`, { runId });
       const result = await deps.runTicket(resume ? { key, runId, resume } : { key, runId });
       await handleRunResult(deps, key, 'AI-in-progress', result, runId);
@@ -229,6 +254,9 @@ module.exports = {
   handleRunResult,
   runPreflight,
   findHumanReply,
+  findHumanReplies,
+  replyMessage,
+  failureComment,
   labelForStatus,
   pollerRunId,
   lockOwner,

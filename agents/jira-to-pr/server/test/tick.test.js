@@ -1,11 +1,12 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { tick, findHumanReply } = require('../poller/tick');
+const { tick, findHumanReply, findHumanReplies } = require('../poller/tick');
 const { makeDeps, agentBody, humanBody, NEEDS_INPUT_JQL, STALE_JQL } = require('./helpers/fakes');
 
 const POLLER_RUN_ID = 'poller-20261026-101112';
 const RUN_ID = '20261026-101112-LM-1';
+const FAIL_TAIL = '. Check `git status` in the repos and any applied migrations before retrying.';
 
 test('tick does nothing when paused', async () => {
   const f = makeDeps({ paused: true, searches: { MAIN_JQL: [{ key: 'LM-1' }] } });
@@ -61,7 +62,7 @@ for (const [status, label] of [
     if (status === 'needs_input') assert.equal(t.questionCommentId, '77');
     const failComments = f.commentCalls().filter((c) => c[2].startsWith('run failed'));
     if (label === 'AI-failed') {
-      assert.deepEqual(failComments, [['comment', 'LM-1', `run failed — see workspace/runs/${RUN_ID}`, RUN_ID]]);
+      assert.deepEqual(failComments, [['comment', 'LM-1', `run failed — see workspace/runs/${RUN_ID}${FAIL_TAIL}`, RUN_ID]]);
     } else {
       assert.equal(failComments.length, 0);
     }
@@ -138,13 +139,14 @@ function needsInputDeps(extra = {}) {
   });
 }
 
-test('tick resumes needs-input ticket on unmarked reply with sessionId', async () => {
+test('tick resumes needs-input ticket with every human reply, oldest first', async () => {
   const f = needsInputDeps();
   const r = await tick(f.deps);
   assert.equal(r.action, 'resumed');
   assert.equal(r.key, 'LM-5');
   assert.equal(f.runCalls.length, 1);
-  assert.deepEqual(f.runCalls[0].resume, { sessionId: 'sess-5', message: 'use table X' });
+  // both replies after the question, in order, blank line between; pre-question note excluded
+  assert.deepEqual(f.runCalls[0].resume, { sessionId: 'sess-5', message: 'first reply\n\nuse table X' });
   assert.equal(f.runCalls[0].lockDuringRun.owner, 'poller:LM-5');
   assert.deepEqual(f.labelCalls(), [
     ['setAiLabel', 'LM-5', 'AI-needs-input', 'AI-in-progress'],
@@ -285,4 +287,39 @@ test('handleRunResult saves state before the outcome label swap', async () => {
   assert.deepEqual(t.branches, { Tools: 'task/LM-1' });
   assert.equal(t.lastStatus, 'done');
   assert.equal(f.getLock(), null);
+});
+
+test('findHumanReplies sorts by created time and skips marked comments', () => {
+  const comments = [
+    { id: '1', created: '2026-10-26T09:00:00.000+0000', body: agentBody('q') },
+    { id: '3', created: '2026-10-26T09:20:00.000+0000', body: humanBody('second') },
+    { id: '2', created: '2026-10-26T09:10:00.000+0000', body: humanBody('first') },
+    { id: '4', created: '2026-10-26T09:30:00.000+0000', body: agentBody('agent note') },
+  ];
+  assert.deepEqual(findHumanReplies(comments, '1').map((c) => c.id), ['2', '3']);
+  assert.deepEqual(findHumanReplies([], '1'), []);
+});
+
+test('tick labels a done run with a draft PR as AI-draft', async () => {
+  const f = makeDeps({
+    searches: { MAIN_JQL: [{ key: 'LM-1' }] },
+    result: { status: 'done', prs: [{ repo: 'Tools', url: 'u1', draft: false }, { repo: 'ListingSyncer', url: 'u2', draft: true }] },
+  });
+  const r = await tick(f.deps);
+  assert.equal(r.action, 'started');
+  assert.deepEqual(f.labelCalls().at(-1), ['setAiLabel', 'LM-1', 'AI-in-progress', 'AI-draft']);
+  assert.ok(f.calls.some((c) => c[0] === 'log' && c[1] === 'warn' && /draft PR/.test(c[2])));
+});
+
+test('tick failure comment says the run timed out and for how long', async () => {
+  const f = makeDeps({
+    searches: { MAIN_JQL: [{ key: 'LM-1' }] },
+    config: { runTimeoutMs: 90 * 60 * 1000 },
+    result: { status: 'failed', timedOut: true },
+  });
+  await tick(f.deps);
+  assert.deepEqual(f.labelCalls().at(-1), ['setAiLabel', 'LM-1', 'AI-in-progress', 'AI-failed']);
+  assert.deepEqual(f.commentCalls().at(-1), [
+    'comment', 'LM-1', `run timed out after 90 min — see workspace/runs/${RUN_ID}${FAIL_TAIL}`, RUN_ID,
+  ]);
 });
