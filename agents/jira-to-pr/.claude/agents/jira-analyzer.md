@@ -20,14 +20,17 @@ Use Atlassian MCP tools:
 
 ### Fetching data: server mode (`SERVER_MODE=true`)
 
-Use `Bash` with curl. Credentials come from environment variables `JIRA_BOT_EMAIL` and `JIRA_BOT_API_TOKEN`.
-See `../../config/server-mode.md` for exact curl patterns.
+Use `Bash` with curl. Credentials come from environment variables `JIRA_EMAIL` and `JIRA_API_TOKEN`.
+See `config/server-mode.md` (relative to the agent's cwd `agents/jira-to-pr`) for exact curl patterns.
 
 Do NOT call any `mcp__atlassian__*` tools in server mode.
 
 3. If the task has links to other tasks (parent, related, blocked by) — quickly review them for context.
-4. If the task has links to other tasks (parent, related, blocked by) — quickly review them for context.
-5. Return the summary in the structured format (see below).
+   If the ticket or its parent epic names a base branch (e.g. `epic/LM-4380-bing-via-api`), report it.
+4. Comments starting with `🤖 ai-workspace:` were posted by the agent/poller (under Vadym's
+   account). Treat later comments without that marker as human answers to the agent's questions.
+5. Return the summary in the structured format (see below). Read-only: never post comments or
+   change labels/status.
 
 ## Response format
 
@@ -55,7 +58,8 @@ inferred_scope:
   frontend: true | false
   qa: true | false
   
-likely_repos: [api-service, web-app]   # based on labels and description, assumptions
+likely_repos: [Tools, ListingSyncer]   # based on labels and description, assumptions
+base_branch: master   # or the branch named in the ticket / parent epic
 
 open_questions:
   - "If anything in the task is unclear — list it here"
