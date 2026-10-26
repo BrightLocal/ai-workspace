@@ -12,7 +12,8 @@ suitable for a shared server.
 ## Setup
 
 ```bash
-cp agents/jira-to-pr/config/bot.env.example .env   # fill in JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN
+cp agents/jira-to-pr/config/bot.env.example .env   # fill in JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN,
+                                                   # GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL
 touch personal/ai-poller.paused                    # start paused; remove when ready
 docker compose up -d --build
 ```
@@ -52,4 +53,5 @@ Not run at build time because they need real credentials:
 
 - [ ] Claude login reused: `docker compose run --rm ai-workspace claude -p "say ok" --output-format json` returns JSON with `"result"`
 - [ ] GitHub over HTTPS: `docker compose run --rm ai-workspace git -C /home/lenovo/brightLocal/Tools ls-remote origin HEAD` succeeds
+- [ ] Commit author set: `docker compose run --rm ai-workspace git -C /home/lenovo/brightLocal/Tools var GIT_AUTHOR_IDENT` prints your name and email (no "unable to auto-detect email address", no entrypoint WARNING)
 - [ ] `docker compose up -d && curl -s localhost:3000/health` returns `{"status":"ok",...,"paused":true}`

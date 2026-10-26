@@ -34,8 +34,10 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get install -y docker-ce-cli docker-compose-plugin \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
+# Claude Code CLI — pinned to the host's version (the container reuses the host's ~/.claude),
+# bump deliberately. No self-updates inside the container.
+RUN npm install -g @anthropic-ai/claude-code@2.1.311
+ENV DISABLE_AUTOUPDATER=1
 
 # Server dependencies live outside the (bind-mounted) workspace
 COPY agents/jira-to-pr/server/package.json agents/jira-to-pr/server/package-lock.json /opt/server-deps/
