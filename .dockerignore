@@ -4,3 +4,5 @@
 personal/
 agents/jira-to-pr/workspace/
 products/*/working/
+**/node_modules
+.superpowers/

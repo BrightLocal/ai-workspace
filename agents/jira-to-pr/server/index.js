@@ -1,63 +1,135 @@
+'use strict';
+const fs = require('node:fs');
 const express = require('express');
-const { spawn } = require('child_process');
-const path = require('path');
+const { loadConfig } = require('./poller/config');
+const { createJiraClient } = require('./poller/jira');
+const { loadState, saveState } = require('./poller/state');
+const { isPaused, checkRepos, checkContainers } = require('./poller/preflight');
+const { acquireRunLock, releaseRunLock, readRunLock, clearStaleLock } = require('./poller/runlock');
+const { runTicket, newRunId } = require('./poller/dispatcher');
+const { handleRunResult, runPreflight, lockOwner, AI_LABELS } = require('./poller/tick');
+const { startPollerLoop } = require('./poller/loop');
 
-const app = express();
-app.use(express.json());
+// The poller only works LM tickets; the manual trigger is held to the same project.
+const JIRA_KEY_RE = /^LM-\d{1,6}$/;
 
-const PORT = process.env.PORT || 3000;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-const AGENT_DIR = path.resolve(__dirname, '..');
+// Manual trigger: same run lock and the same post-run handling as the poller.
+// Label handling: if the ticket has an AI* label, swap it to AI-in-progress (keeps exactly
+// one AI* label); if it has none, labels are untouched until the outcome label is added.
+async function runManual(deps, key) {
+  const issues = await deps.jira.search(`key = "${key}"`, ['labels']);
+  const labels = (issues[0] && issues[0].labels) || [];
+  const current = labels.find((l) => AI_LABELS.includes(l)) || null;
+  if (current && current !== 'AI-in-progress') await deps.jira.setAiLabel(key, current, 'AI-in-progress');
+  const from = current ? 'AI-in-progress' : null;
 
-// Jira key format: 1-6 uppercase letters, dash, 1-6 digits
-const JIRA_KEY_RE = /^[A-Z]{1,6}-[0-9]{1,6}$/;
+  const runId = newRunId(key, deps.now ? deps.now() : new Date());
+  deps.log('info', `${key} manual run started`, { runId });
+  const result = await deps.runTicket({ key, runId });
+  await handleRunResult(deps, key, from, result, runId);
+}
 
-// In-memory set to prevent concurrent runs for the same issue
-const activeRuns = new Set();
+function createApp(deps) {
+  const { config, lock } = deps;
+  const app = express();
+  app.use(express.json());
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', activeRuns: Array.from(activeRuns) });
-});
-
-app.post('/run-agent', (req, res) => {
-  // Validate shared secret
-  if (WEBHOOK_SECRET && req.headers['x-webhook-secret'] !== WEBHOOK_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { jira_key } = req.body;
-
-  if (!jira_key || !JIRA_KEY_RE.test(jira_key)) {
-    return res.status(400).json({ error: 'jira_key is required and must match pattern PROJECT-123' });
-  }
-
-  if (activeRuns.has(jira_key)) {
-    return res.status(409).json({ error: 'Agent already running for this issue', jira_key });
-  }
-
-  activeRuns.add(jira_key);
-
-  const child = spawn('./scripts/run-agent.sh', [jira_key], {
-    cwd: AGENT_DIR,
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, SERVER_MODE: 'true' },
+  app.get('/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      paused: deps.preflight.isPaused(config.pauseFile),
+      lock: lock.read(config.lockPath),
+    });
   });
 
-  child.on('close', (code) => {
-    activeRuns.delete(jira_key);
-    console.log(`[${jira_key}] agent finished with exit code ${code}`);
+  app.post('/run-agent', (req, res) => {
+    if (deps.webhookSecret && req.headers['x-webhook-secret'] !== deps.webhookSecret) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const key = req.body && req.body.jira_key;
+    if (!key || !JIRA_KEY_RE.test(key)) {
+      return res.status(400).json({ error: 'jira_key is required and must match pattern LM-123' });
+    }
+
+    if (deps.preflight.isPaused(config.pauseFile)) {
+      return res.status(409).json({ error: 'paused' });
+    }
+
+    if (!lock.acquire(config.lockPath, lockOwner('http', key))) {
+      return res.status(409).json({ error: 'A run is already active', jira_key: key, lock: lock.read(config.lockPath) });
+    }
+
+    // Same repo/container pre-flight as the poller. A manual trigger that fails it is
+    // refused outright: no Jira comment, no label change.
+    const check = runPreflight(deps, deps.state.load());
+    if (!check.ok) {
+      lock.release(config.lockPath);
+      deps.log('warn', `${key} manual trigger refused: ${check.reason}`);
+      return res.status(409).json({ error: check.reason });
+    }
+
+    res.status(202).json({ status: 'accepted', jira_key: key });
+
+    runManual(deps, key)
+      .catch((e) => deps.log('error', `${key} manual run failed: ${e.message}`, { stack: e.stack }))
+      .finally(() => lock.release(config.lockPath));
   });
 
-  child.unref();
+  return app;
+}
 
-  console.log(`[${jira_key}] agent started (pid ${child.pid})`);
-  res.status(202).json({ status: 'accepted', jira_key });
-});
+function log(level, msg, extra) {
+  const line = `[${new Date().toISOString()}] ${level.toUpperCase()} ${msg}`;
+  const out = level === 'error' || level === 'warn' ? console.error : console.log;
+  if (extra === undefined) out(line);
+  else out(line, JSON.stringify(extra));
+}
 
-app.listen(PORT, () => {
-  console.log(`ai-workspace server listening on port ${PORT}`);
-  if (!WEBHOOK_SECRET) {
-    console.warn('WARNING: WEBHOOK_SECRET is not set — endpoint is unprotected');
-  }
-});
+function buildDeps(env) {
+  const config = loadConfig(env);
+  return {
+    config,
+    jira: createJiraClient({ baseUrl: config.jiraBaseUrl, email: config.jiraEmail, token: config.jiraToken }),
+    state: { load: () => loadState(config.statePath), save: (s) => saveState(config.statePath, s) },
+    preflight: { isPaused, checkRepos: (repos, set) => checkRepos(repos, set), checkContainers: (repos) => checkContainers(repos) },
+    lock: { acquire: acquireRunLock, release: releaseRunLock, read: readRunLock, clearStale: clearStaleLock, exists: (p) => fs.existsSync(p) },
+    runTicket: (args) => runTicket(args, { config }),
+    now: () => new Date(),
+    log,
+    webhookSecret: env.WEBHOOK_SECRET,
+  };
+}
+
+// Poller and HTTP trigger share one process, so at startup no run of ours can be active:
+// any run.lock left over (crash, container restart reusing PID 1, empty/corrupt file) is
+// released (ruling R13).
+function recoverRunLock(deps) {
+  const { lock, config } = deps;
+  const existing = lock.read(config.lockPath);
+  // read() returns null for an empty/unparseable file, so also probe for the file itself.
+  const present = existing !== null || (typeof lock.exists === 'function' && lock.exists(config.lockPath));
+  if (!present) return false;
+  deps.log('warn', 'releasing run lock left over from a previous process', { lock: existing });
+  lock.release(config.lockPath);
+  return true;
+}
+
+module.exports = { createApp, buildDeps, recoverRunLock };
+
+if (require.main === module) {
+  const deps = buildDeps(process.env);
+  const port = process.env.PORT || 3000;
+  const server = createApp(deps).listen(port, () => {
+    log('info', `ai-workspace server listening on port ${port}`);
+    if (!deps.webhookSecret) log('warn', 'WEBHOOK_SECRET is not set — /run-agent is unprotected');
+  });
+  recoverRunLock(deps);
+  const loop = startPollerLoop(deps);
+  const shutdown = () => {
+    loop.stop();
+    server.close(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
