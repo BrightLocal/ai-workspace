@@ -34,7 +34,7 @@ function runTicket({ key, runId, resume }, { config, script = DEFAULT_SCRIPT, sp
     ...process.env,
     MAX_TURNS: config.maxTurns == null ? '' : String(config.maxTurns),
     TARGET_ENV: config.targetEnv,
-    RUNS_DIR: config.runsDir,
+    RUNS_DIR: path.resolve(config.runsDir),
   };
 
   return new Promise((resolve) => {

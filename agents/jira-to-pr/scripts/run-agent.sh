@@ -43,21 +43,21 @@ else
     PROMPT="Execute the full workflow for Jira task $JIRA_KEY. Run id: $RUN_ID. Target environment: $ENV_FILE. Follow the phase sequence from CLAUDE.md. Write result.json to $RUN_DIR as specified in CLAUDE.md."
 fi
 
-CLAUDE_ARGS=(
-    -p
-    --output-format json
-    --permission-mode acceptEdits
+# The prompt must directly follow -p: --add-dir is variadic and would swallow
+# a trailing positional argument as another directory.
+CLAUDE_ARGS=(-p "$PROMPT" --output-format json --permission-mode acceptEdits)
+[[ -n "${MAX_TURNS:-}" ]] && CLAUDE_ARGS+=(--max-turns "$MAX_TURNS")
+[[ -n "$RESUME_ID" ]] && CLAUDE_ARGS+=(--resume "$RESUME_ID")
+CLAUDE_ARGS+=(
     --add-dir "$WORKSPACE_ROOT/products/Tools/codebase/Tools"
     --add-dir "$WORKSPACE_ROOT/products/ListingSyncer/codebase/ListingSyncer"
 )
-[[ -n "${MAX_TURNS:-}" ]] && CLAUDE_ARGS+=(--max-turns "$MAX_TURNS")
-[[ -n "$RESUME_ID" ]] && CLAUDE_ARGS+=(--resume "$RESUME_ID")
 
 # cd so the agent's own CLAUDE.md and .claude/settings.json apply.
 cd "$ROOT_DIR"
 
 set +e
-claude "${CLAUDE_ARGS[@]}" "$PROMPT" > "$RUN_DIR/claude.json" 2> "$RUN_DIR/agent.log"
+claude "${CLAUDE_ARGS[@]}" > "$RUN_DIR/claude.json" 2> "$RUN_DIR/agent.log"
 EXIT_CODE=$?
 set -e
 
