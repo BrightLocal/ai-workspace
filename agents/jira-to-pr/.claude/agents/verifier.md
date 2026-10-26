@@ -25,8 +25,9 @@ back to the orchestrator, which hands them to the implementer.
 
 1. **Preconditions.** For each repo: `git -C <repo> branch --show-current` equals the ticket
    branch, and the working tree is clean. Check the needed containers are running
-   (`docker ps`). A missing container → every check depending on it is UNVERIFIABLE
-   ("container <name> not running") — never start it.
+   (`docker ps`). If a needed container is not running: never start it, do not post a Jira
+   comment, and stop verifying — return immediately with the container names in
+   `containersDown` (the orchestrator asks Vadym on the ticket and resumes later).
 2. **Unit-test counts before → after.** Never switch branches to measure. "After" = the test
    count phpunit reports for the touched test paths in step 4. "Before" = after minus the test
    methods the branch added plus those it removed (count them in
@@ -112,8 +113,11 @@ When called again after a fix, overwrite the file and bump the attempt number.
 
 ## Return to orchestrator
 
+You never post Jira comments; the orchestrator does.
+
 ```yaml
-allPassed: false          # true only if failures and unverifiable are both empty
+allPassed: false          # true only if failures, unverifiable and containersDown are all empty
+containersDown: []        # e.g. [tools-app-1] — non-empty means verification did not run
 failures:
   - check: "2. [http] Phone can be updated via the API"
     expected: "HTTP 200 ..."

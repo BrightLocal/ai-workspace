@@ -1,6 +1,6 @@
 ---
 name: code-researcher
-description: Read-only codebase researcher. Searches cloned repositories for code relevant to the task and returns sufficient context for planning.
+description: Read-only codebase researcher. Searches the Tools and ListingSyncer checkouts for code relevant to the task and returns sufficient context for planning.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

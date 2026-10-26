@@ -96,7 +96,10 @@ Use the **verifier** subagent. Pass it the plan path, the branches from Phase 4,
 the run dir and the target environment file. It reloads the affected processes, runs unit and
 static checks, executes every `## How to verify` check against the running stacks (migrations
 applied and rolled back), cleans up, writes `<RUN_DIR>/verification.md`, and returns
-`{allPassed, failures[], unverifiable[]}`.
+`{allPassed, failures[], unverifiable[], containersDown[]}`.
+
+- `containersDown` non-empty: take the **clarification exit** (one marked comment asking Vadym
+  to start those containers; `result.json` status `needs_input`).
 
 - `failures` non-empty → hand the failures to the **implementer** to fix (same branches, new
   commits, push), then run the verifier again. **At most 3 implement↔verify attempts** in total.
@@ -105,8 +108,8 @@ applied and rolled back), cleans up, writes `<RUN_DIR>/verification.md`, and ret
 - `unverifiable` items never trigger another loop; they force Draft in Phase 5.
 
 ### Phase 5: Pull Requests
-For each branch, create the PR with the **`bl-create-pr`** skill (`.claude/skills/bl-create-pr/SKILL.md`),
-passing the base branch (default `master`, or the ticket/epic base branch) and the path to
+For each branch, read `.claude/skills/bl-create-pr/SKILL.md` and follow it yourself (it is not
+invocable via the Skill tool), with the repo path, the base branch (default `master`, or the ticket/epic base branch) and the path to
 `verification.md`. The PR body carries a `## Verification` section copied from it.
 
 Draft decision (also enforced by the skill): the PR is **Draft** if any check failed or is
@@ -154,7 +157,9 @@ exit, or a failure exit. Write it with the Write tool (valid JSON, no comments):
 ## Clarification exit
 
 Used when Phase 1 or 3 finds missing acceptance criteria or a real ambiguity, or when the
-implementer reports a composer.lock mismatch or a needed container is down:
+implementer reports a composer.lock mismatch, or the verifier reports `containersDown`.
+If the implementer already posted the lockcheck comment, reuse its id as
+`question_comment_id` and do not post a second comment. Otherwise:
 1. Post ONE marked comment with numbered questions (or the exact action needed from Vadym),
    each answerable in a sentence. Capture the comment id from the response.
 2. Write `result.json` with `status: "needs_input"`, a one-line `summary`, `question_comment_id`,
@@ -162,6 +167,14 @@ implementer reports a composer.lock mismatch or a needed container is down:
 3. Stop. End the run normally (exit 0) — do not continue to later phases, do not guess.
 
 When Vadym replies, the poller resumes this session (see "Resumed runs").
+
+## Failure exit
+
+For runs that cannot continue. Triggers: the implementer stops on a dirty working tree; a repo
+is not on its ticket branch on resume; a push is rejected; the implementation is impossible.
+1. Post one marked comment giving the reason.
+2. Write `result.json` with status `failed`, a one-line summary and any branches created.
+3. Stop.
 
 ## Jira comments
 

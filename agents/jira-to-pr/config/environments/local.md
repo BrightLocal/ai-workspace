@@ -29,7 +29,8 @@ so the agent's branch is what gets verified.
 ## Containers
 
 Vadym starts and stops the stacks himself. Check with `docker ps --format '{{.Names}}'`;
-if a container you need is not running, stop and ask on the ticket (marked comment) — never start it.
+if a container you need is not running, report it (the verifier returns it in `containersDown`);
+the orchestrator asks on the ticket. Never start it.
 
 | Container | What it is | Code mounted at |
 |---|---|---|
@@ -53,17 +54,17 @@ the repo root (which is the container's working directory).
 **ListingSyncer** (`listing_syncer`, working dir `/var/www`):
 
 ```bash
-docker exec -t listing_syncer php -d memory_limit=5G ./vendor/bin/phpunit <path>
-docker exec -t listing_syncer ./vendor/bin/phpstan analyze <path> -c ./config/phpstan.ci.neon --memory-limit=5G
-docker exec -t listing_syncer ./vendor/bin/ecs check <path> --config config/ecs.php
+docker exec listing_syncer php -d memory_limit=5G ./vendor/bin/phpunit <path>
+docker exec listing_syncer ./vendor/bin/phpstan analyze <path> -c ./config/phpstan.ci.neon --memory-limit=5G
+docker exec listing_syncer ./vendor/bin/ecs check <path> --config config/ecs.php
 ```
 
 **Tools** (`tools-app-1`, working dir `/app`):
 
 ```bash
-docker exec -t tools-app-1 ./vendor/bin/phpunit <path>
-docker exec -t tools-app-1 ./vendor/bin/phpstan analyze <path> -c ./config/phpstan.ci.neon --memory-limit=5G
-docker exec -t tools-app-1 ./vendor/bin/ecs check <path> --config config/ecs.php
+docker exec tools-app-1 ./vendor/bin/phpunit <path>
+docker exec tools-app-1 ./vendor/bin/phpstan analyze <path> -c ./config/phpstan.ci.neon --memory-limit=5G
+docker exec tools-app-1 ./vendor/bin/ecs check <path> --config config/ecs.php
 ```
 
 Notes:
@@ -73,7 +74,7 @@ Notes:
   directly returns "No files found to analyse" — that is not a failure.
 - `ecs check ... --fix` is allowed for files the run changed.
 - Run tests for the touched areas only, not the full suite.
-- Headless runs have no TTY: if `-t` errors with "the input device is not a TTY", drop it.
+- Headless runs have no TTY: do not add `-t` to `docker exec`.
 
 ## Reloading code
 
@@ -83,7 +84,8 @@ points; the verifier discovers and confirms them from the repo's config on the f
 (LS: `Dockerfile.run.local`, `.docker/swoole.conf`; Tools: `docker-compose.yml`,
 `Dockerfile.workerman.local`, `.docker/config/php/*.ini`) and records what worked in
 `verification.md`. If no reload works for a check, that check is UNVERIFIABLE ("Could not
-verify"), never PASS.
+verify"), never PASS. Never signal PID 1 inside a container, except `-USR2` to the php-fpm
+master (graceful reload).
 
 | Process | Candidate reload |
 |---|---|
@@ -149,10 +151,11 @@ is discovered on first use and written into `verification.md`.
 
 Never install dependencies (`composer install` / `composer update`, on the host or inside a
 container). After checking out the ticket branch, compare each touched repo's `composer.lock`
-with its installed `vendor/`:
+with its installed `vendor/`. The agent's cwd is `agents/jira-to-pr` (`run-agent.sh` cds there),
+so the path is relative to it:
 
 ```bash
-node /home/lenovo/brightLocal/ai-workspace/agents/jira-to-pr/server/poller/lockcheck.js <repoPath>
+node server/poller/lockcheck.js <repoPath>
 ```
 
 Exit `0` = matches; `3` = mismatch (one `name: locked X, installed Y` line per package);
@@ -166,6 +169,8 @@ comment listing the output and asking Vadym to run `composer install`, then end 
   `docker compose up|down|start|stop|restart`, `make up` (it also brings up `tools-ls-1`, which
   clashes with Vadym's separate LS stack).
 - `composer install` / `composer update` anywhere, including via `docker exec`.
+- Wrapping any forbidden command in `docker exec ... sh -c '...'` (or any other wrapper) is
+  still forbidden — the rule is about the operation, not the command prefix.
 - Writes to DB rows the run did not create; "migrate all" commands.
 - Touching uncommitted work in the checkouts: no `git stash`, `git reset --hard`, `git checkout -- .`,
   `git clean`.
