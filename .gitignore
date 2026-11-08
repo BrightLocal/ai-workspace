@@ -31,3 +31,6 @@ workspace/
 # UI — dependencies and build output
 ui/node_modules/
 ui/client/dist/
+
+# jira-to-pr server — npm dependencies
+agents/jira-to-pr/server/node_modules/

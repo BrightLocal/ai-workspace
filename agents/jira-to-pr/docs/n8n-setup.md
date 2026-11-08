@@ -1,5 +1,8 @@
 # n8n Workflow Setup Guide
 
+> **Note:** This guide describes the legacy/future server (n8n) deployment. The current
+> local MVP (label poller on the laptop) is described in `local-poller.md`.
+
 This guide explains how to configure n8n to automatically trigger the jira-to-pr agent
 when a Jira task is assigned to the bot user.
 
@@ -7,7 +10,7 @@ when a Jira task is assigned to the bot user.
 
 - The ai-workspace server is running and accessible from n8n (see `server-setup.md`)
 - You have the `WEBHOOK_SECRET` value set on the server
-- You have the `JIRA_BOT_ACCOUNT_ID` of the bot user
+- You have the `BOT_ACCOUNT_ID` (Jira accountId) of the bot user
 
 ---
 
@@ -40,7 +43,7 @@ The workflow is intentionally fire-and-forget. The agent updates the Jira issue 
 - **Condition:**
   - Left value: `{{ $json.issue.fields.assignee.accountId }}`
   - Operation: `is equal to`
-  - Right value: `JIRA_BOT_ACCOUNT_ID` (replace with actual value)
+  - Right value: `BOT_ACCOUNT_ID` (replace with actual value)
 
 Connect the **True** branch to Node 3. The **False** branch ends (no action).
 
@@ -79,9 +82,9 @@ status code and log/skip 409s.
 
 | Label | Meaning |
 |-------|---------|
-| `ai-processing` | Agent has started working on this issue — set by n8n or the agent |
-| `ai-processed` | Pipeline completed successfully — PR created, comment posted |
-| `ai-error` | Agent run failed — check Docker logs on the VM |
+| `AI-in-progress` | Agent has started working on this issue |
+| `AI-done` | Pipeline completed successfully — PR created, comment posted |
+| `AI-failed` | Agent run failed — check Docker logs on the VM |
 
 You can use these labels in Jira board filters to monitor agent activity.
 
@@ -92,6 +95,6 @@ You can use these labels in Jira board filters to monitor agent activity.
 1. Activate the workflow in n8n.
 2. In Jira, assign a test issue to the bot user (`ai-agent@brightlocal.com`).
 3. In n8n, check the workflow execution log — Node 3 should show `202 Accepted`.
-4. In Jira, the issue should get the `ai-processing` label within seconds.
+4. In Jira, the issue should get the `AI-in-progress` label within seconds.
 5. After ~10-20 minutes: a PR should appear on GitHub and a comment on the Jira issue.
-6. The label should change from `ai-processing` to `ai-processed`.
+6. The label should change from `AI-in-progress` to `AI-done`.
