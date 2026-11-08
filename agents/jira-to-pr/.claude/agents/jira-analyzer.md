@@ -29,7 +29,17 @@ Do NOT call any `mcp__atlassian__*` tools in server mode.
    If the ticket or its parent epic names a base branch (e.g. `epic/LM-4380-bing-via-api`), report it.
 4. Comments starting with `🤖 ai-workspace:` were posted by the agent/poller (under Vadym's
    account). Treat later comments without that marker as human answers to the agent's questions.
-5. Return the summary in the structured format (see below). Read-only: never post comments or
+5. **Discover existing work on the ticket** (read-only, works in both modes):
+   - Open PRs mentioning the key, per repo:
+     `gh pr list --repo BrightLocal/Tools --state open --search "<KEY>" --json url,title,headRefName,isDraft,author`
+     and the same for `BrightLocal/ListingSyncer`.
+   - Remote branches carrying the key:
+     `git -C ../../products/Tools/codebase/Tools ls-remote --heads origin "*<KEY>*"` and the
+     same for `../../products/ListingSyncer/codebase/ListingSyncer`.
+   - Mark each found PR/branch as `agent: true` when a previous marked comment on the ticket
+     (one starting `🤖 ai-workspace:`) references that PR URL or branch name — that is the
+     agent's own earlier work. Everything else is `agent: false`.
+6. Return the summary in the structured format (see below). Read-only: never post comments or
    change labels/status.
 
 ## Response format
@@ -60,6 +70,14 @@ inferred_scope:
   
 likely_repos: [Tools, ListingSyncer]   # based on labels and description, assumptions
 base_branch: master   # or the branch named in the ticket / parent epic
+
+existing_work:        # open PRs / remote branches already carrying this ticket key; [] if none
+  - repo: Tools
+    branch: task/LM-1234-something
+    pr_url: https://github.com/BrightLocal/Tools/pull/NNN   # omit if branch only, no PR
+    is_draft: true
+    author: someone
+    agent: false      # true only if a prior 🤖 ai-workspace comment references it
 
 open_questions:
   - "If anything in the task is unclear — list it here"

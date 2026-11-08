@@ -76,6 +76,15 @@ open questions.
 If the summary shows missing acceptance criteria or a real ambiguity that changes what gets
 built → **clarification exit**. Do not guess.
 
+**Existing work rule.** Act on the summary's `existing_work` list before anything is built:
+- Entries with `agent: true` (a previous marked comment references that PR/branch — the
+  agent's own earlier run) → continue on them: pass the branch name per repo to the
+  implementer, and Phase 5 updates the existing PR instead of opening a new one.
+- Any entry with `agent: false` (a teammate's branch or PR, or work this agent cannot
+  attribute to itself) → **clarification exit**: one marked comment listing what was found
+  (PR URLs / branch names, authors) and asking whether to continue on the existing branch,
+  start fresh anyway, or drop the ticket. Never build alongside a human's open PR unasked.
+
 ### Phase 2: Codebase Research
 Use the **code-researcher** subagent. Pass it the summary from Phase 1 and the repo paths from
 the target environment file. The repos are Vadym's real checkouts — nothing is cloned in this

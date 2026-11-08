@@ -35,12 +35,16 @@ running stacks serve. Use `git -C <repo> ...`; do not clone or copy.
    - default: `origin/master`;
    - if the ticket or its parent epic names a base branch (e.g. `epic/LM-4380-bing-via-api`),
      use `origin/<that branch>` and remember it — the PR must target it too.
-4. Create the ticket branch from that base, following ADR-0019 naming from
-   `../../shared/engineering/git-conventions.md` (Jira issue type → prefix; uppercase ticket
-   key; Tools and LS use the same branch name for the same ticket):
-   `git -C <repo> checkout -b <branch> origin/<base>`.
-   If the branch already exists (resumed run / implement↔verify retry), check it out instead
-   and continue on it — never recreate or reset it.
+4. Choose the ticket branch. If the orchestrator passed an existing branch name (from the
+   Phase 1 existing-work rule), use that name; otherwise derive one following ADR-0019 naming
+   from `../../shared/engineering/git-conventions.md` (Jira issue type → prefix; uppercase
+   ticket key; Tools and LS use the same branch name for the same ticket). Then, in order:
+   - local branch exists (resumed run / implement↔verify retry) → `git -C <repo> checkout
+     <branch>` and continue on it — never recreate or reset it;
+   - else remote branch exists (`git -C <repo> rev-parse --verify --quiet origin/<branch>`
+     after the fetch) → `git -C <repo> checkout -b <branch> origin/<branch>` and continue on
+     it — never branch a same-named duplicate from base, the push would be rejected;
+   - else → `git -C <repo> checkout -b <branch> origin/<base>`.
 5. **Dependency check, right after checkout:** run the lockcheck command from the target
    environment file's "Dependencies" section for each touched repo.
    - exit 0 → continue;
