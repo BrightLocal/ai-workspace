@@ -40,7 +40,7 @@ mkdir -p "$RUN_DIR"
 if [[ -n "$RESUME_ID" ]]; then
     PROMPT="Vadym replied on $JIRA_KEY: $MESSAGE. Continue the workflow from where you stopped. Run id: $RUN_ID. Write result.json to $RUN_DIR."
 else
-    PROMPT="Execute the full workflow for Jira task $JIRA_KEY. Run id: $RUN_ID. Target environment: $ENV_FILE. Follow the phase sequence from CLAUDE.md. Write result.json to $RUN_DIR as specified in CLAUDE.md."
+    PROMPT="Execute the full workflow for Jira task $JIRA_KEY. Run id: $RUN_ID. Execution mode: SERVER (all Jira calls via scripts/jira-api.sh; see config/server-mode.md). Target environment: $ENV_FILE. Follow the phase sequence from CLAUDE.md. Write result.json to $RUN_DIR as specified in CLAUDE.md."
 fi
 
 # The prompt must directly follow -p: --add-dir is variadic and would swallow

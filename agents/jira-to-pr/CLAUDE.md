@@ -55,12 +55,15 @@ or a **failure exit** (see below) — both still write `result.json`.
 
 ### Step 0: Detect execution mode
 
-Check whether the `SERVER_MODE` environment variable is set to `true`.
+The run prompt says which mode you are in ("Execution mode: SERVER"). Do NOT probe
+environment variables from Bash (`echo $SERVER_MODE` etc.) — the permission system refuses
+commands containing variables, and the answer is already in the prompt.
 
-- **If `SERVER_MODE=true`:** Load `config/server-mode.md`. All Jira interactions in the phases
-  below must use the curl-based REST API patterns described there (credentials `JIRA_EMAIL` /
-  `JIRA_API_TOKEN`). Do NOT use any `mcp__atlassian__*` tools.
-- **If `SERVER_MODE` is not set (local mode, interactive):** Use Atlassian MCP tools
+- **Server mode (any headless run started by the poller or run-agent.sh):** Load
+  `config/server-mode.md`. All Jira interactions in the phases below go through
+  `scripts/jira-api.sh` as described there. Do NOT use any `mcp__atlassian__*` tools and do
+  NOT write raw `curl` commands with credential variables.
+- **Local mode (interactive, no run prompt saying SERVER):** Use Atlassian MCP tools
   (`mcp__atlassian__*`); each call needs the user's approval at the prompt (see "MCP servers").
   Comment format, the clarification exit and `result.json` apply in both
   modes; labels are never changed in either.
