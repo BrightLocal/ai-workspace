@@ -29,5 +29,8 @@ services:
       - /home/lenovo/brightLocal/ListingSyncer:/home/lenovo/brightLocal/ListingSyncer:rw
       - /home/lenovo/.claude:/home/lenovo/.claude:rw
       - /home/lenovo/.claude.json:/home/lenovo/.claude.json:rw
+      # User-level git ignores — without this, files the host git ignores (e.g.
+      # .claude/settings.local.json) make the mounted repos look dirty to pre-flight.
+      - /home/lenovo/.config/git:/home/lenovo/.config/git:ro
       - /var/run/docker.sock:/var/run/docker.sock:rw
     restart: unless-stopped
