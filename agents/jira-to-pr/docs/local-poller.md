@@ -12,8 +12,9 @@ suitable for a shared server.
 ## Setup
 
 ```bash
-cp agents/jira-to-pr/config/bot.env.example .env   # fill in JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN,
-                                                   # GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL
+cp agents/jira-to-pr/config/bot.env.example .env   # neutral defaults; leave personal values empty
+# Personal values and secrets go in .env.local (overrides .env; both gitignored):
+# JIRA_EMAIL, JIRA_API_TOKEN, GH_TOKEN, GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, WEBHOOK_SECRET
 touch personal/ai-poller.paused                    # start paused; remove when ready
 docker compose up -d --build
 ```
