@@ -2,7 +2,7 @@
 const path = require('node:path');
 
 const DEFAULT_JQL =
-  'project = LM AND labels = AI AND status != Done ORDER BY created ASC';
+  'project = LM AND labels = AI AND statusCategory != Done ORDER BY created ASC';
 
 function required(env, name) {
   const v = env[name];

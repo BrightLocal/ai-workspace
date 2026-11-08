@@ -14,7 +14,7 @@ test('loadConfig applies defaults', () => {
   assert.equal(c.jiraBaseUrl, 'https://brightlocal.atlassian.net');
   assert.equal(c.jiraEmail, 'a@b.c');
   assert.equal(c.jiraToken, 'tok');
-  assert.equal(c.jql, 'project = LM AND labels = AI AND status != Done ORDER BY created ASC');
+  assert.equal(c.jql, 'project = LM AND labels = AI AND statusCategory != Done ORDER BY created ASC');
   assert.equal(c.pollIntervalMs, 300000);
   assert.equal(c.runTimeoutMs, 5400000);
   assert.equal(c.staleMs, 10800000);

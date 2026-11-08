@@ -53,7 +53,7 @@ extensions only exist inside the project docker stacks. The MVP closes both gaps
   Extends the existing `Dockerfile` / `docker-compose.yml`; the HTTP `/run-agent` endpoint
   stays as a manual trigger.
 - **Polling, not webhooks.** Every 5 minutes, JQL:
-  `project = LM AND labels = AI AND status != Done ORDER BY created ASC`.
+  `project = LM AND labels = AI AND statusCategory != Done ORDER BY created ASC`.
 - **Option B — real checkouts mounted.** The agent branches and edits in
   `~/brightLocal/Tools` and `~/brightLocal/ListingSyncer` directly, so Vadym's running
   stacks serve the agent's code. Vadym keeps his own work out of those folders while a
@@ -223,7 +223,7 @@ GH_TOKEN=
 POLL_INTERVAL_SEC=300
 RUN_TIMEOUT_MIN=90
 MAX_TURNS=
-JIRA_JQL=project = LM AND labels = AI AND status != Done ORDER BY created ASC
+JIRA_JQL=project = LM AND labels = AI AND statusCategory != Done ORDER BY created ASC
 HOST_UID=1000
 HOST_DOCKER_GID=999
 WEBHOOK_SECRET=        # for the kept manual HTTP trigger
